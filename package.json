@@ -3,6 +3,8 @@
     "@tailwindcss/postcss": "^4.1.11"
   },
   "dependencies": {
-    "firebase": "^12.0.0"
+    "@tailwindcss/vite": "^4.1.11",
+    "firebase": "^12.0.0",
+    "tailwindcss": "^4.1.11"
   }
 }
