@@ -8,6 +8,5 @@ export {
     Hero01,
     Hero02,
     Hero03,
-    Logo_H,
 
 };

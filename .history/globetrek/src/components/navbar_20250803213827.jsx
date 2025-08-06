@@ -7,9 +7,7 @@ import { Logo_H } from "../assets";
 const Navbar = () => {
   return (
     <section className="navbar flex items-center justify-between px-8 py-4 text-black bg-trnasparent backdrop-blur-md">
-      <div className="navbar-logo text-xl font-bold h-[50px] w-auto">
-  <img src={Logo_H} alt="Logo" className="h-full w-auto" />
-</div>
+      <div className="navbar-logo text-xl font-bold"><img src={Logo_H} alt="Logo"  style={'height:300px'}/></div>
 
       <ul className="navbar-links flex flex-row gap-7 list-none text-black ">
         <li>
