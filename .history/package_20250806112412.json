@@ -1,0 +1,15 @@
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.11",
+    "firebase": "^12.0.0",
+    "tailwindcss": "^4.1.11"
+  }
+}
