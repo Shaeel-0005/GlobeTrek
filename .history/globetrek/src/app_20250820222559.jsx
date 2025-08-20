@@ -5,7 +5,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { app } from './firebase';
 import {Homepage,Dashboard,SignIn,SignUp} from './pages/index';
-import {AddJournal} from './components/index';
+import AddJournal from './components/addjournal';
 
 export default function App() {
   const [user, setUser] = useState(null);

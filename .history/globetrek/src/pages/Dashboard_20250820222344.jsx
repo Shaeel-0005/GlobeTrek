@@ -2,8 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { app } from '../firebase';
-import { Link } from 'react-router-dom';
-
+import {add}
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -23,11 +22,7 @@ export default function Dashboard() {
       <div className="bg-white p-8 rounded-lg shadow-lg max-w-2xl w-full">
         <h2 className="text-2xl font-bold mb-4 text-center">Welcome to Your GlobeTrek Dashboard</h2>
         <p className="text-center">Start creating your travel memories!</p>
-       <Link to="/add-journal">
-  <button className="bg-blue-500 text-white px-4 py-2 rounded-md">
-    Add Journal
-  </button>
-</Link>
+        <button><a href={}>Add Journal</a></button>
         {/* Add map, timeline, or journal entry components here */}
       </div>
     </div>

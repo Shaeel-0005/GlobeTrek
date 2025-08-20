@@ -1,5 +1,5 @@
 import Navbar from "./navbar";
-import AddJournal from "./addjournal";
+import addjournal from "./addjournal";
 
 export { Navbar,
     AddJournal,

@@ -5,7 +5,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { app } from './firebase';
 import {Homepage,Dashboard,SignIn,SignUp} from './pages/index';
-import {AddJournal} from './components/index';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -47,7 +46,6 @@ console.log("Auth User:", user);
         <Route path="/" element={<Homepage />} />
         <Route path="/signin" element={user ? <Navigate to="/dashboard" /> : <SignIn />} />
         <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <SignUp />} />
-        <Route path="/add-journal" element={<AddJournal />} />
         <Route
           path="/dashboard"
           element={user ? <Dashboard /> : <Navigate to="/signin" />}
