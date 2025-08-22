@@ -16,21 +16,15 @@ export default function Signup() {
     setError("");
     
     try {
-      console.log("🔐 Attempting signup with:", { email, password: "***" });
-      
       // 1. Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
       });
       
-      console.log("📝 Signup response:", { authData, authError });
-      
       if (authError) throw authError;
       
       if (authData.user) {
-        console.log("✅ User created in auth:", authData.user.id);
-        
         // 2. Insert user data into users table
         const { error: insertError } = await supabase
           .from("users")
@@ -40,24 +34,13 @@ export default function Signup() {
             email: email,
           });
           
-        console.log("📊 Insert result:", { insertError });
+        if (insertError) throw insertError;
         
-        if (insertError) {
-          console.error("Insert failed but user exists in auth");
-          throw insertError;
-        }
-        
-        // Check if we have a session (user is immediately logged in)
-        if (authData.session) {
-          console.log("🎉 User signed up and logged in!");
-          navigate("/dashboard", { state: { userName: name } });
-        } else {
-          console.log("📧 Email confirmation required");
-          setError("Account created! Please check your email to confirm your account, then try signing in.");
-        }
+        // 3. Success - navigate to dashboard
+        navigate("/dashboard", { state: { userName: name } });
       }
     } catch (err) {
-      console.error("❌ Signup error:", err);
+      console.error("Signup error:", err);
       setError(err.message || "Signup failed. Please try again.");
     } finally {
       setLoading(false);
