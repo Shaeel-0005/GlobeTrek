@@ -3,6 +3,7 @@
     "@tailwindcss/postcss": "^4.1.11"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.60.0",
     "@tailwindcss/vite": "^4.1.11",
     "firebase": "^12.0.0",
     "tailwindcss": "^4.1.11"
