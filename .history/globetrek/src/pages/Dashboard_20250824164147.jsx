@@ -144,13 +144,12 @@ export default function Dashboard() {
               <Camera className="w-6 h-6 text-green-600" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Travel Journals
+              Travel Journal
             </h3>
             <p className="text-gray-600 text-sm mb-4">
-              See your adventures and shared with experiences.
+              Document your adventures and share your experiences.
             </p>
-            <button className="w-full border border-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-50 transition-colors"
-            onClick={() => navigate("/all-journals")}>
+            <button className="w-full border border-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-50 transition-colors">
               View Journal
             </button>
           </div>
@@ -160,14 +159,14 @@ export default function Dashboard() {
               <Calendar className="w-6 h-6 text-purple-600" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Map View
+              Upcoming Trips
             </h3>
             <p className="text-gray-600 text-sm mb-4">
               Keep track of your planned adventures and bookings.
             </p>
             <button className="w-full bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
-            onClick={() => navigate("/map-view")}>
-              View Map 
+            onClick={() => navigate("/add-journal")}>
+              View Calendar 
             </button>
           </div>
         </div>

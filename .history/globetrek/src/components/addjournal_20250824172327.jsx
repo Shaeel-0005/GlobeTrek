@@ -12,45 +12,11 @@ const useDebounce = (callback, delay) => {
   }, [callback, delay]);
 };
 
-// Custom hook for location autocomplete with multiple API fallbacks
+// Custom hook for location autocomplete
 const useLocationAutocomplete = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const abortControllerRef = useRef();
-
-  // Multiple geocoding APIs for better coverage
-  const searchAPIs = [
-    {
-      name: 'OpenStreetMap Nominatim',
-      search: async (query, signal) => {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-            query
-          )}&addressdetails=1&limit=3&extratags=1&namedetails=1`,
-          { 
-            signal,
-            headers: { 'User-Agent': 'TravelJournalApp/1.0' }
-          }
-        );
-        if (!response.ok) throw new Error('Nominatim failed');
-        return await response.json();
-      }
-    },
-    {
-      name: 'LocationIQ',
-      search: async (query, signal) => {
-        // Note: Replace with your actual API key
-        const response = await fetch(
-          `https://us1.locationiq.com/v1/search.php?key=YOUR_LOCATIONIQ_API_KEY&q=${encodeURIComponent(
-            query
-          )}&format=json&limit=3&addressdetails=1&extratags=1&namedetails=1`,
-          { signal }
-        );
-        if (!response.ok) throw new Error('LocationIQ failed');
-        return await response.json();
-      }
-    }
-  ];
 
   const searchLocations = useCallback(async (query) => {
     // Cancel previous request
@@ -63,74 +29,25 @@ const useLocationAutocomplete = () => {
     
     try {
       setIsSearching(true);
-      let allResults = [];
-
-      // Try each API and combine results
-      for (const api of searchAPIs) {
-        try {
-          const results = await api.search(query, abortControllerRef.current.signal);
-          
-          // Normalize results format
-          const normalizedResults = results.map(result => ({
-            ...result,
-            source: api.name,
-            display_name: result.display_name || result.formatted || `${result.name}, ${result.state || result.country}`,
-            place_id: result.place_id || result.osm_id || `${api.name}-${result.lat}-${result.lon}`,
-            type: result.type || result.category || 'location',
-            lat: parseFloat(result.lat),
-            lon: parseFloat(result.lon || result.lng)
-          }));
-
-          allResults = [...allResults, ...normalizedResults];
-          
-          // If we get good results from first API, we can break early for speed
-          if (normalizedResults.length >= 3) break;
-          
-        } catch (apiError) {
-          console.warn(`${api.name} search failed:`, apiError);
-          // Continue to next API
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          query
+        )}&addressdetails=1&limit=5&countrycodes=us,ca,gb,au,de,fr,it,es,jp,in`, // Add popular countries
+        { 
+          signal: abortControllerRef.current.signal,
+          headers: {
+            'User-Agent': 'TravelJournalApp/1.0'
+          }
         }
-      }
-
-      // Remove duplicates based on coordinates proximity
-      const uniqueResults = [];
-      allResults.forEach(result => {
-        const isDuplicate = uniqueResults.some(existing => {
-          const latDiff = Math.abs(existing.lat - result.lat);
-          const lonDiff = Math.abs(existing.lon - result.lon);
-          return latDiff < 0.001 && lonDiff < 0.001; // ~100m tolerance
-        });
-        
-        if (!isDuplicate) {
-          uniqueResults.push(result);
-        }
-      });
-
-      // Sort by relevance (exact matches first, then by distance from search term)
-      const sortedResults = uniqueResults
-        .sort((a, b) => {
-          const queryLower = query.toLowerCase();
-          const aName = a.display_name.toLowerCase();
-          const bName = b.display_name.toLowerCase();
-          
-          // Exact matches first
-          if (aName.includes(queryLower) && !bName.includes(queryLower)) return -1;
-          if (!aName.includes(queryLower) && bName.includes(queryLower)) return 1;
-          
-          // Prefer results that start with query
-          const aStarts = aName.startsWith(queryLower);
-          const bStarts = bName.startsWith(queryLower);
-          if (aStarts && !bStarts) return -1;
-          if (!aStarts && bStarts) return 1;
-          
-          return 0;
-        })
-        .slice(0, 5); // Limit to 5 results
-
-      setSuggestions(sortedResults);
+      );
+      
+      if (!response.ok) throw new Error('Search failed');
+      
+      const results = await response.json();
+      setSuggestions(results);
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.error("All location search APIs failed:", error);
+        console.error("Location search failed:", error);
         setSuggestions([]);
       }
     } finally {
@@ -474,50 +391,21 @@ export default function AddJournalForm() {
                   <div className="font-medium text-gray-900">
                     {suggestion.display_name}
                   </div>
-                  <div className="flex justify-between items-center mt-1">
-                    {suggestion.type && (
-                      <div className="text-xs text-gray-500 capitalize">
-                        {suggestion.type}
-                      </div>
-                    )}
-                    {suggestion.source && (
-                      <div className="text-xs text-blue-500 bg-blue-50 px-2 py-0.5 rounded">
-                        {suggestion.source === 'OpenStreetMap Nominatim' ? 'OSM' : 'LocationIQ'}
-                      </div>
-                    )}
-                  </div>
+                  {suggestion.type && (
+                    <div className="text-xs text-gray-500 mt-1 capitalize">
+                      {suggestion.type}
+                    </div>
+                  )}
                 </li>
               ))}
-              
-              {/* Add manual entry option */}
-              <li
-                onClick={() => {
-                  // Allow user to manually enter location without coordinates
-                  setFormData(prev => ({
-                    ...prev,
-                    coords: null // Clear coords but keep the typed location
-                  }));
-                  clearSuggestions();
-                  locationInputRef.current?.blur();
-                }}
-                className="p-3 hover:bg-yellow-50 cursor-pointer text-sm border-t-2 border-yellow-100 bg-yellow-25"
-              >
-                <div className="font-medium text-yellow-700 flex items-center">
-                  <span className="mr-2">✏️</span>
-                  Use "{formData.location}" as entered
-                </div>
-                <div className="text-xs text-yellow-600 mt-1">
-                  Save without exact coordinates (location will be stored as text only)
-                </div>
-              </li>
             </ul>
           )}
           
           {/* Show message if user typed but no coordinates saved */}
           {formData.location.length > 2 && !formData.coords && suggestions.length === 0 && !isSearching && (
             <div className="text-xs text-amber-600 mt-1 flex items-center">
-              <span className="mr-1">💡</span>
-              No matching locations found. You can still save this as a text-only location.
+              <span className="mr-1">⚠️</span>
+              Select a location from suggestions to save coordinates
             </div>
           )}
         </div>

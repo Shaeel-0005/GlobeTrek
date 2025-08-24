@@ -53,7 +53,7 @@ export default function App() {
           <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <SignUp />} />
           <Route path="/add-journal" element={<AddJournal />} />
           <Route path="/map-view" element={<MapView />} />
-          <Route path="/all-journals" element={<AllJournals />} />
+          <Route path="/AllJournals" element={<AllJournals />} />
           <Route
             path="/dashboard"
             element={user ? <Dashboard /> : <Navigate to="/signin" />}
