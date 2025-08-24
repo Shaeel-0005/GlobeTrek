@@ -133,7 +133,7 @@ export default function Dashboard() {
             </p>
             <button
               className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2 px-4 rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all duration-200"
-              onClick={() => navigate("/add-journal")}
+              onClick={() => navigate("/addjournal")}
             >
               Add Journal
             </button>

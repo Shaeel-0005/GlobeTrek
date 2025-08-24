@@ -11,46 +11,35 @@ export default function AddJournalForm() {
   const [media, setMedia] = useState([]);
   const [error, setError] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setError("You must be logged in to add a journal.");
+      return;
+    }
+    const { data, error } = await supabase.storage.listBuckets();
+    console.log(data, error);
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setError("You must be logged in to add a journal.");
-        setLoading(false);
-        return;
-      }
-
       let mediaURLs = [];
-
-      // upload each selected file
       for (const file of media) {
         const filePath = `${user.id}/${Date.now()}_${file.name}`;
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError, data } = await supabase.storage
           .from("media")
           .upload(filePath, file, { upsert: true });
-
         if (uploadError) throw uploadError;
-
-        // ✅ get permanent public URL (since bucket is public)
         const { data: urlData } = supabase.storage
           .from("media")
           .getPublicUrl(filePath);
-
         mediaURLs.push(urlData.publicUrl);
       }
 
-      // insert journal into DB
-      const { error: insertError } = await supabase.from("journals").insert({
+      const { error } = await supabase.from("journals").insert({
         user_id: user.id,
         title,
         location,
@@ -60,10 +49,8 @@ export default function AddJournalForm() {
         media_urls: mediaURLs,
         created_at: new Date(),
       });
+      if (error) throw error;
 
-      if (insertError) throw insertError;
-
-      // reset form
       setTitle("");
       setLocation("");
       setDate("");
@@ -71,17 +58,10 @@ export default function AddJournalForm() {
       setMishaps("");
       setMedia([]);
       setShowSuccess(true);
-
-      // wait a sec so user sees success toast, then redirect
-      setTimeout(() => {
-        setShowSuccess(false);
-        navigate("/dashboard");
-      }, 2000);
+      setTimeout(() => setShowSuccess(false), 3000);
+      navigate("/dashboard");
     } catch (err) {
-      console.error(err);
-      setError(err?.message || "Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
+      setError(err.message);
     }
   };
 
@@ -96,13 +76,10 @@ export default function AddJournalForm() {
           Journal entry created!
         </div>
       )}
-
       <h2 className="text-2xl font-bold mb-4 text-gray-900">
         Add New Journal Entry
       </h2>
-
       {error && <p className="text-red-500 mb-4">{error}</p>}
-
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-gray-700 text-sm font-medium mb-1">
@@ -116,7 +93,6 @@ export default function AddJournalForm() {
             required
           />
         </div>
-
         <div>
           <label className="block text-gray-700 text-sm font-medium mb-1">
             Location
@@ -129,7 +105,6 @@ export default function AddJournalForm() {
             required
           />
         </div>
-
         <div>
           <label className="block text-gray-700 text-sm font-medium mb-1">
             Date
@@ -142,7 +117,6 @@ export default function AddJournalForm() {
             required
           />
         </div>
-
         <div>
           <label className="block text-gray-700 text-sm font-medium mb-1">
             Description
@@ -155,7 +129,6 @@ export default function AddJournalForm() {
             required
           />
         </div>
-
         <div>
           <label className="block text-gray-700 text-sm font-medium mb-1">
             Mishaps
@@ -167,7 +140,6 @@ export default function AddJournalForm() {
             rows="2"
           />
         </div>
-
         <div>
           <label className="block text-gray-700 text-sm font-medium mb-1">
             Media (Photos/Videos)
@@ -180,20 +152,13 @@ export default function AddJournalForm() {
             className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600"
           />
         </div>
-
         <button
           type="submit"
-          disabled={loading}
-          className={`w-full text-white p-2 rounded transition ${
-            loading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
-          }`}
+          className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition"
         >
-          {loading ? "Saving..." : "Save Journal"}
+          Save Journal
         </button>
       </form>
-
       <style>
         {`
           @keyframes fadeInOut {
@@ -203,7 +168,7 @@ export default function AddJournalForm() {
             100% { opacity: 0; transform: translateY(-10px); }
           }
           .animate-fade-in-out {
-            animation: fadeInOut 2s ease-in-out forwards;
+            animation: fadeInOut 3s ease-in-out forwards;
           }
         `}
       </style>
