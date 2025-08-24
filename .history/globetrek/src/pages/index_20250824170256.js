@@ -11,7 +11,6 @@ export {
      LoginModal,
      Dashboard,
      SignUp,
-     MapView,
-     AllJournals
+     MapView
 
     };

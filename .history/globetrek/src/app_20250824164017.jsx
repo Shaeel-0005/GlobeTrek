@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabase';
-import { Homepage, Dashboard, LoginModal, SignUp, MapView, AllJournals } from './pages/index';
+import { Homepage, Dashboard, LoginModal, SignUp, MapView } from './pages/index';
 import { AddJournal } from './components/index';
 
 export default function App() {
@@ -52,8 +52,6 @@ export default function App() {
           <Route path="/signin" element={user ? <Navigate to="/dashboard" /> : <LoginModal />} />
           <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <SignUp />} />
           <Route path="/add-journal" element={<AddJournal />} />
-          <Route path="/map-view" element={<MapView />} />
-          <Route path="/all-journals" element={<AllJournals />} />
           <Route
             path="/dashboard"
             element={user ? <Dashboard /> : <Navigate to="/signin" />}

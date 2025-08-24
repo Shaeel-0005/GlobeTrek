@@ -1,0 +1,327 @@
+import { useEffect, useRef, useState } from 'react';
+import { useAuth } from '../auth/AuthContext';
+import { supabase } from '../integrations/supabase/client';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { ArrowLeft, MapPin, Calendar, Camera, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+const MapView = () => {
+  const { user } = useAuth();
+  const mapContainer = useRef(null);
+  const map = useRef(null);
+  const [journals, setJournals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedJournal, setSelectedJournal] = useState(null);
+  const [mapboxToken, setMapboxToken] = useState('');
+  const [toast, setToast] = useState(null);
+  const markersRef = useRef([]);
+
+  // Simple toast function
+  const showToast = (title, description, variant = 'default') => {
+    setToast({ title, description, variant });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  useEffect(() => {
+    const fetchJournals = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('journals')
+          .select('*')
+          .eq('user_id', user.id)
+          .not('location', 'is', null);
+          
+        if (error) {
+          console.error('Error fetching journals:', error);
+          showToast(
+            "Error loading journals",
+            "Could not load your travel journals.",
+            "destructive"
+          );
+        } else if (data) {
+          setJournals(data);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJournals();
+  }, [user]);
+
+  const initializeMap = (token) => {
+    if (!mapContainer.current || map.current) return;
+
+    mapboxgl.accessToken = token;
+    
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/light-v11',
+      center: [0, 20],
+      zoom: 2
+    });
+
+    map.current.addControl(new mapboxgl.NavigationControl());
+    
+    // Add markers for journals with valid locations
+    journals.forEach(journal => {
+      if (journal.location && map.current) {
+        const coords = parseLocation(journal.location);
+        if (coords) {
+          const marker = new mapboxgl.Marker({
+            color: '#3B82F6'
+          })
+          .setLngLat([coords.lng, coords.lat])
+          .addTo(map.current);
+
+          // Add click event
+          marker.getElement().addEventListener('click', () => {
+            setSelectedJournal(journal);
+          });
+
+          markersRef.current.push(marker);
+        }
+      }
+    });
+
+    if (markersRef.current.length > 0) {
+      // Fit map to show all markers
+      const bounds = new mapboxgl.LngLatBounds();
+      markersRef.current.forEach(marker => {
+        bounds.extend(marker.getLngLat());
+      });
+      map.current.fitBounds(bounds, { padding: 50 });
+    }
+  };
+
+  // Simple location parser - in production, use proper geocoding
+  const parseLocation = (location) => {
+    const locationMap = {
+      'paris': { lat: 48.8566, lng: 2.3522 },
+      'london': { lat: 51.5074, lng: -0.1278 },
+      'tokyo': { lat: 35.6762, lng: 139.6503 },
+      'new york': { lat: 40.7128, lng: -74.0060 },
+      'rome': { lat: 41.9028, lng: 12.4964 },
+      'barcelona': { lat: 41.3851, lng: 2.1734 },
+      'amsterdam': { lat: 52.3676, lng: 4.9041 },
+      'berlin': { lat: 52.5200, lng: 13.4050 },
+      'sydney': { lat: -33.8688, lng: 151.2093 },
+      'bangkok': { lat: 13.7563, lng: 100.5018 }
+    };
+    
+    const key = location.toLowerCase().trim();
+    return locationMap[key] || null;
+  };
+
+  const handleMapboxTokenSubmit = () => {
+    if (mapboxToken.trim()) {
+      initializeMap(mapboxToken);
+    } else {
+      showToast(
+        "Token required",
+        "Please enter your Mapbox public token.",
+        "destructive"
+      );
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50">
+        <div className="text-center">
+          <MapPin className="w-12 h-12 text-blue-600 animate-pulse mx-auto mb-4" />
+          <p className="text-gray-600">Loading your journeys...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+          toast.variant === 'destructive' ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-green-100 text-green-800 border border-green-200'
+        }`}>
+          <div className="font-semibold">{toast.title}</div>
+          <div className="text-sm">{toast.description}</div>
+        </div>
+      )}
+
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <Link to="/dashboard">
+                <button className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white rounded-md hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Dashboard
+                </button>
+              </Link>
+              <h1 className="text-xl font-bold text-gray-900 flex items-center space-x-2">
+                <MapPin className="w-5 h-5 text-blue-600" />
+                <span>Map View</span>
+              </h1>
+            </div>
+            <div className="text-sm text-gray-600">
+              {journals.length} {journals.length === 1 ? 'journey' : 'journeys'} mapped
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-1 relative">
+        {!map.current ? (
+          <div className="max-w-md mx-auto p-8 mt-20">
+            <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+              <div className="p-6">
+                <h2 className="text-xl font-semibold text-center text-gray-900 mb-4">Configure Mapbox</h2>
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 text-center">
+                    Enter your Mapbox public token to view your journeys on the map.
+                  </p>
+                  <input
+                    type="text"
+                    placeholder="pk.eyJ1Ijoi..."
+                    value={mapboxToken}
+                    onChange={(e) => setMapboxToken(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button 
+                    onClick={handleMapboxTokenSubmit}
+                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Load Map
+                  </button>
+                  <p className="text-xs text-gray-500 text-center">
+                    Get your token from{' '}
+                    <a 
+                      href="https://mapbox.com/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      mapbox.com
+                    </a>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Map Container */}
+            <div ref={mapContainer} className="absolute inset-0" />
+
+            {/* Journal Preview Modal */}
+            {selectedJournal && (
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg shadow-xl border border-gray-200 max-w-md w-full max-h-[80vh] overflow-auto">
+                  <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {selectedJournal.title || 'Untitled Journey'}
+                    </h3>
+                    <button
+                      onClick={() => setSelectedJournal(null)}
+                      className="p-1 hover:bg-gray-100 rounded-full"
+                    >
+                      <X className="w-4 h-4 text-gray-500" />
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    {selectedJournal.location && (
+                      <div className="flex items-center space-x-2 text-sm text-gray-600">
+                        <MapPin className="w-4 h-4" />
+                        <span>{selectedJournal.location}</span>
+                      </div>
+                    )}
+                    
+                    {selectedJournal.date && (
+                      <div className="flex items-center space-x-2 text-sm text-gray-600">
+                        <Calendar className="w-4 h-4" />
+                        <span>{new Date(selectedJournal.date).toLocaleDateString()}</span>
+                      </div>
+                    )}
+
+                    {selectedJournal.description && (
+                      <p className="text-sm text-gray-700">{selectedJournal.description}</p>
+                    )}
+
+                    {selectedJournal.media_urls && selectedJournal.media_urls.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2 text-sm text-gray-600">
+                          <Camera className="w-4 h-4" />
+                          <span>{selectedJournal.media_urls.length} photo(s)</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {selectedJournal.media_urls.slice(0, 4).map((url, index) => (
+                            <img
+                              key={index}
+                              src={url}
+                              alt={`Photo ${index + 1}`}
+                              className="w-full h-20 object-cover rounded-md"
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <button 
+                      onClick={() => setSelectedJournal(null)} 
+                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Floating Stats */}
+            <div className="absolute top-4 right-4 z-10">
+              <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200">
+                <div className="p-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {journals.length}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Journeys Mapped
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {journals.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center max-w-md">
+              <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No Journeys Yet
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Start documenting your travels to see them appear on the map!
+              </p>
+              <Link to="/dashboard">
+                <button className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors">
+                  Start Journaling
+                </button>
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default MapView;
