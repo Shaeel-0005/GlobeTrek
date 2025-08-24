@@ -1,25 +1,22 @@
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "../supabase";
-import { Plane, MapPin, Camera, Calendar, LogOut, User } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../supabase';
+import { Plane, MapPin, Camera, Calendar, LogOut, User } from 'lucide-react';
 
 export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [userName, setUserName] = useState("");
+  const [userName, setUserName] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         // Get user from Supabase auth
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        
         if (authError || !user) {
-          navigate("/");
+          navigate('/');
           return;
         }
 
@@ -33,20 +30,20 @@ export default function Dashboard() {
 
         // Otherwise fetch from database
         const { data, error } = await supabase
-          .from("users")
-          .select("name")
-          .eq("id", user.id)
+          .from('users')
+          .select('name')
+          .eq('id', user.id)
           .single();
-
+          
         if (error) {
-          console.error("Error fetching user data:", error);
-          setUserName("Traveler");
+          console.error('Error fetching user data:', error);
+          setUserName('Traveler');
         } else if (data) {
           setUserName(data.name);
         }
       } catch (error) {
-        console.error("Error:", error);
-        setUserName("Traveler");
+        console.error('Error:', error);
+        setUserName('Traveler');
       } finally {
         setLoading(false);
       }
@@ -59,10 +56,10 @@ export default function Dashboard() {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      navigate("/");
+      navigate('/');
     } catch (error) {
-      console.error("Error signing out:", error);
-      alert("Error signing out. Please try again.");
+      console.error('Error signing out:', error);
+      alert('Error signing out. Please try again.');
     }
   };
 
@@ -89,11 +86,11 @@ export default function Dashboard() {
               </div>
               <h1 className="text-xl font-bold text-gray-900">GlobeTrek</h1>
             </div>
-
+            
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <User className="w-4 h-4" />
-                <span>Welcome, {userName || "Traveler"}!</span>
+                <span>Welcome, {userName || 'Traveler'}!</span>
               </div>
               <button
                 onClick={handleSignOut}
@@ -112,7 +109,7 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome back, {userName || "Traveler"}! ✈️
+            Welcome back, {userName || 'Traveler'}! ✈️
           </h2>
           <p className="text-gray-600 text-lg">
             Ready for your next adventure? Your journey starts here.
@@ -125,16 +122,11 @@ export default function Dashboard() {
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
               <MapPin className="w-6 h-6 text-blue-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Share New Experience
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Share New Experience</h3>
             <p className="text-gray-600 text-sm mb-4">
               Discover new destinations and create your perfect itinerary.
             </p>
-            <button
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2 px-4 rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all duration-200"
-              onClick={() => navigate("/add-journal")}
-            >
+            <button className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2 px-4 rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all duration-200">
               Add Journal
             </button>
           </div>
@@ -143,9 +135,7 @@ export default function Dashboard() {
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
               <Camera className="w-6 h-6 text-green-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Travel Journal
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Travel Journal</h3>
             <p className="text-gray-600 text-sm mb-4">
               Document your adventures and share your experiences.
             </p>
@@ -158,9 +148,7 @@ export default function Dashboard() {
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
               <Calendar className="w-6 h-6 text-purple-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Upcoming Trips
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Upcoming Trips</h3>
             <p className="text-gray-600 text-sm mb-4">
               Keep track of your planned adventures and bookings.
             </p>
