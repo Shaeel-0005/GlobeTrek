@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '../supabase';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css'; // Local Leaflet CSS
-import './map.css'; // Custom map styles
+import
 import { 
   ArrowLeft, MapPin, Calendar, Camera, X, 
   User, LogOut, Navigation, AlertCircle, Plus,
@@ -11,7 +9,7 @@ import {
 } from 'lucide-react';
 
 const MapView = () => {
-  const navigate = (path) => console.log(`Navigate to: ${path}`);
+  const navigate = (path) => console.log(`Navigate to: ${path}`); // Replace with react-router useNavigate
   const mapContainer = useRef(null);
   const map = useRef(null);
   const markersRef = useRef([]);
@@ -29,6 +27,7 @@ const MapView = () => {
   const [previewJournal, setPreviewJournal] = useState(null);
   const [previewTimer, setPreviewTimer] = useState(null);
 
+  // Fetch user and journals from Supabase
   useEffect(() => {
     const fetchUserAndJournals = async () => {
       try {
@@ -48,16 +47,15 @@ const MapView = () => {
         const { data: journalsData, error: journalsError } = await supabase
           .from('journals')
           .select('id, user_id, title, location, lat, lng, date, description, mishaps, media_urls')
-          .eq('user_id', user.id)
-          .is('deleted_at', null)
+          .eq('user_id', user.id) // Filter by user
+          .is('deleted_at', null) // Soft delete
           .order('date', { ascending: false });
         
         if (journalsError) throw journalsError;
-        console.log('Fetched journals:', journalsData);
         setJournals(journalsData || []);
       } catch (err) {
-        console.error('Fetch error:', err);
-        setError('Failed to load data. Check network or refresh.');
+        console.error('Error:', err);
+        setError('Failed to load data. Try refreshing.');
       } finally {
         setLoading(false);
       }
@@ -66,10 +64,13 @@ const MapView = () => {
     fetchUserAndJournals();
   }, []);
 
+  // Load map after journals fetched
   useEffect(() => {
     if (!loading && !mapLoaded && journals.length > 0) {
       loadLeafletMap();
     }
+
+    // Cleanup markers on unmount
     return () => {
       if (map.current) {
         markersRef.current.forEach(marker => map.current.removeLayer(marker));
@@ -80,10 +81,11 @@ const MapView = () => {
     };
   }, [loading, mapLoaded, journals]);
 
+  // Group journals by proximity
   const groupJournalsByProximity = useCallback((journals) => {
     const groups = [];
     const used = new Set();
-    const PROXIMITY_THRESHOLD = 0.05;
+    const PROXIMITY_THRESHOLD = 0.05; // ~5km
 
     journals.forEach((journal, i) => {
       if (used.has(i) || !journal.lat || !journal.lng) return;
@@ -108,15 +110,34 @@ const MapView = () => {
       groups.push(group);
     });
 
-    console.log('Grouped journals:', groups);
     return groups;
   }, []);
 
   const loadLeafletMap = async () => {
-    console.log('Loading map with journals:', journals);
     if (mapLoaded || !mapContainer.current) return;
 
     try {
+      // Load Leaflet CSS
+      if (!document.querySelector('link[href*="leaflet"]')) {
+        const cssLink = document.createElement('link');
+        cssLink.rel = 'stylesheet';
+        cssLink.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(cssLink);
+      }
+
+      // Load Leaflet JS
+      if (!window.L) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('Failed to load Leaflet'));
+          document.head.appendChild(script);
+        });
+      }
+
+      const L = window.L;
+      
       map.current = L.map(mapContainer.current, {
         zoomControl: false,
         scrollWheelZoom: true,
@@ -144,10 +165,7 @@ const MapView = () => {
         const lat = parseFloat(mainJournal.lat);
         const lng = parseFloat(mainJournal.lng);
         
-        if (isNaN(lat) || isNaN(lng)) {
-          console.warn('Invalid coordinates for journal:', mainJournal.title, lat, lng);
-          return;
-        }
+        if (isNaN(lat) || isNaN(lng)) return;
 
         let markerHtml, clickHandler;
 
@@ -232,28 +250,22 @@ const MapView = () => {
         const bounds = group.getBounds();
         if (bounds.isValid()) {
           map.current.fitBounds(bounds.pad(0.1), { maxZoom: 12, animate: true });
-        } else {
-          console.warn('Invalid bounds, using default view');
         }
-      } else {
-        console.warn('No valid locations to map');
       }
 
       setMapLoaded(true);
     } catch (err) {
-      console.error('Map load error:', err);
+      console.error('Map error:', err);
       setError('Failed to load map. Check network or refresh.');
     }
   };
 
   const showPreview = (journal) => {
-    console.log('Preview:', journal.title);
     if (previewTimer) clearTimeout(previewTimer);
     setPreviewJournal(journal);
   };
 
   const schedulePreviewHide = () => {
-    console.log('Hiding preview');
     const timer = setTimeout(() => setPreviewJournal(null), 500);
     setPreviewTimer(timer);
   };

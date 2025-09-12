@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '../supabase';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css'; // Local Leaflet CSS
-import './map.css'; // Custom map styles
 import { 
   ArrowLeft, MapPin, Calendar, Camera, X, 
   User, LogOut, Navigation, AlertCircle, Plus,
@@ -11,7 +8,7 @@ import {
 } from 'lucide-react';
 
 const MapView = () => {
-  const navigate = (path) => console.log(`Navigate to: ${path}`);
+  const navigate = (path) => console.log(`Navigate to: ${path}`); // Replace with real navigation (e.g., react-router)
   const mapContainer = useRef(null);
   const map = useRef(null);
   const markersRef = useRef([]);
@@ -29,6 +26,7 @@ const MapView = () => {
   const [previewJournal, setPreviewJournal] = useState(null);
   const [previewTimer, setPreviewTimer] = useState(null);
 
+  // Fetch user and journals from Supabase
   useEffect(() => {
     const fetchUserAndJournals = async () => {
       try {
@@ -47,17 +45,15 @@ const MapView = () => {
 
         const { data: journalsData, error: journalsError } = await supabase
           .from('journals')
-          .select('id, user_id, title, location, lat, lng, date, description, mishaps, media_urls')
-          .eq('user_id', user.id)
-          .is('deleted_at', null)
+          .select('*')
+          .not('deleted_at', 'is', null)
           .order('date', { ascending: false });
         
         if (journalsError) throw journalsError;
-        console.log('Fetched journals:', journalsData);
         setJournals(journalsData || []);
       } catch (err) {
-        console.error('Fetch error:', err);
-        setError('Failed to load data. Check network or refresh.');
+        console.error('Error:', err);
+        setError('Failed to load data. Try refreshing.');
       } finally {
         setLoading(false);
       }
@@ -66,10 +62,13 @@ const MapView = () => {
     fetchUserAndJournals();
   }, []);
 
+  // Load map after journals fetched
   useEffect(() => {
     if (!loading && !mapLoaded && journals.length > 0) {
       loadLeafletMap();
     }
+
+    // Cleanup markers on unmount
     return () => {
       if (map.current) {
         markersRef.current.forEach(marker => map.current.removeLayer(marker));
@@ -80,17 +79,18 @@ const MapView = () => {
     };
   }, [loading, mapLoaded, journals]);
 
+  // Group journals by proximity
   const groupJournalsByProximity = useCallback((journals) => {
     const groups = [];
     const used = new Set();
-    const PROXIMITY_THRESHOLD = 0.05;
+    const PROXIMITY_THRESHOLD = 0.05; // ~5km for clustering
 
     journals.forEach((journal, i) => {
       if (used.has(i) || !journal.lat || !journal.lng) return;
 
       const group = [journal];
       used.add(i);
-
+a
       journals.forEach((other, j) => {
         if (used.has(j) || i === j || !other.lat || !other.lng) return;
 
@@ -108,15 +108,35 @@ const MapView = () => {
       groups.push(group);
     });
 
-    console.log('Grouped journals:', groups);
     return groups;
   }, []);
 
   const loadLeafletMap = async () => {
-    console.log('Loading map with journals:', journals);
     if (mapLoaded || !mapContainer.current) return;
 
     try {
+      // Load Leaflet CSS
+      if (!document.querySelector('link[href*="leaflet"]')) {
+        const cssLink = document.createElement('link');
+        cssLink.rel = 'stylesheet';
+        cssLink.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(cssLink);
+      }
+
+      // Load Leaflet JS
+      if (!window.L) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('Failed to load Leaflet'));
+          document.head.appendChild(script);
+        });
+      }
+
+      const L = window.L;
+      
+      // Initialize map
       map.current = L.map(mapContainer.current, {
         zoomControl: false,
         scrollWheelZoom: true,
@@ -126,6 +146,7 @@ const MapView = () => {
         zoomSnap: 0.5
       }).setView([20, 0], 2);
 
+      // Add tile layer
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
         maxZoom: 19,
@@ -133,7 +154,8 @@ const MapView = () => {
       }).addTo(map.current);
 
       const journalGroups = groupJournalsByProximity(
-        journals.filter(j => j.lat && j.lng && !isNaN(j.lat) && !isNaN(j.lng))
+        journals.filter(j => j.lat && j.lng && 
+          !isNaN(parseFloat(j.lat)) && !isNaN(parseFloat(j.lng)))
       );
 
       const validLocations = [];
@@ -144,10 +166,7 @@ const MapView = () => {
         const lat = parseFloat(mainJournal.lat);
         const lng = parseFloat(mainJournal.lng);
         
-        if (isNaN(lat) || isNaN(lng)) {
-          console.warn('Invalid coordinates for journal:', mainJournal.title, lat, lng);
-          return;
-        }
+        if (isNaN(lat) || isNaN(lng)) return;
 
         let markerHtml, clickHandler;
 
@@ -165,9 +184,9 @@ const MapView = () => {
           markerIndex++;
         } else {
           markerHtml = `
-            <div class="cluster-marker">
-              <div class="cluster-count">${group.length}</div>
-              <div class="cluster-pulse"></div>
+            <div className="cluster-marker">
+              <div className="cluster-count">${group.length}</div>
+              <div className="cluster-pulse"></div>
             </div>
           `;
           clickHandler = () => {
@@ -187,9 +206,10 @@ const MapView = () => {
         const marker = L.marker([lat, lng], { 
           icon: customIcon,
           riseOnHover: true,
-          keyboard: true
+          keyboard: true // Accessibility
         }).addTo(map.current);
 
+        // Hover and mobile tap
         if (group.length === 1) {
           marker.on('mouseover', () => showPreview(mainJournal));
           marker.on('mouseout', () => schedulePreviewHide());
@@ -210,6 +230,7 @@ const MapView = () => {
         validLocations.push([lat, lng]);
       });
 
+      // Draw path
       if (validLocations.length > 1) {
         const sortedJournals = [...journals]
           .filter(j => j.lat && j.lng && j.date)
@@ -227,33 +248,28 @@ const MapView = () => {
         }
       }
 
+      // Fit bounds
       if (validLocations.length > 0) {
         const group = L.featureGroup(markersRef.current);
         const bounds = group.getBounds();
         if (bounds.isValid()) {
           map.current.fitBounds(bounds.pad(0.1), { maxZoom: 12, animate: true });
-        } else {
-          console.warn('Invalid bounds, using default view');
         }
-      } else {
-        console.warn('No valid locations to map');
       }
 
       setMapLoaded(true);
     } catch (err) {
-      console.error('Map load error:', err);
+      console.error('Map error:', err);
       setError('Failed to load map. Check network or refresh.');
     }
   };
 
   const showPreview = (journal) => {
-    console.log('Preview:', journal.title);
     if (previewTimer) clearTimeout(previewTimer);
     setPreviewJournal(journal);
   };
 
   const schedulePreviewHide = () => {
-    console.log('Hiding preview');
     const timer = setTimeout(() => setPreviewJournal(null), 500);
     setPreviewTimer(timer);
   };
@@ -315,6 +331,7 @@ const MapView = () => {
 
   return (
     <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-blue-50 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
+      {/* Header */}
       <header className={`bg-white/90 border-b sticky top-0 z-20 ${isFullscreen ? 'h-12' : 'h-16 md:h-20'}`}>
         <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -382,6 +399,7 @@ const MapView = () => {
         </div>
       </header>
 
+      {/* Info bar */}
       {journalsWithoutCoords.length > 0 && !isFullscreen && (
         <div className="bg-amber-50 p-3">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -402,6 +420,7 @@ const MapView = () => {
         </div>
       )}
 
+      {/* Map Container */}
       <div className={`relative ${isFullscreen ? 'h-screen' : 'h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)]'}`}>
         {journals.length > 0 ? (
           <>
@@ -506,6 +525,7 @@ const MapView = () => {
           </div>
         )}
 
+        {/* Cluster Modal */}
         {selectedCluster && (
           <div className="absolute inset-0 z-40 bg-black/50 p-4 md:p-6 flex items-center justify-center" role="dialog" aria-label="Nearby Journals">
             <div className="bg-white/95 rounded-xl shadow-xl max-w-md w-full p-6 max-h-[80vh] overflow-y-auto">
@@ -534,16 +554,7 @@ const MapView = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={async () => {
-                            try {
-                              await supabase.from('journals').update({ deleted_at: new Date() }).eq('id', journal.id);
-                              setJournals(journals.filter(j => j.id !== journal.id));
-                              setSelectedCluster(null);
-                            } catch (err) {
-                              console.error('Delete error:', err);
-                              setError('Failed to delete journal.');
-                            }
-                          }}
+                          onClick={() => console.log(`Delete journal: ${journal.id}`)} // Replace with Supabase delete
                           className="p-1 text-gray-500 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
                           title="Delete Journal"
                           aria-label={`Delete ${journal.title || 'Untitled'}`}
@@ -585,6 +596,7 @@ const MapView = () => {
           </div>
         )}
 
+        {/* Journal Modal */}
         {selectedJournal && (
           <div className="absolute inset-0 z-40 bg-black/50 p-4 md:p-6 flex items-center justify-center" role="dialog" aria-label="Journal Details">
             <div className="bg-white/95 rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[80vh] overflow-y-auto">
@@ -660,7 +672,7 @@ const MapView = () => {
                     Edit
                   </button>
                   <button
-                    onClick={() => console.log(`Share journal: ${selectedJournal.id}`)}
+                    onClick={() => console.log(`Share journal: ${selectedJournal.id}`)} // Replace with share logic
                     className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
                     aria-label={`Share ${selectedJournal.title || 'Untitled'}`}
                   >

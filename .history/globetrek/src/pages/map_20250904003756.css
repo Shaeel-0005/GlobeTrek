@@ -1,17 +1,5 @@
-@import "tailwindcss";
-@import 'leaflet/dist/leaflet.css';
-
-
-body{
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    background-color:#EBF5FF ;
-}
-
-.custom-marker-icon {
-  background: transparent;
-}
+/* index.css */
+.custom-marker-icon { background: transparent; }
 .single-marker {
   width: 40px;
   height: 40px;
@@ -23,10 +11,7 @@ body{
   justify-content: center;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
-.marker-number {
-  font-weight: bold;
-  color: #3B82F6;
-}
+.marker-number { font-weight: bold; color: #3B82F6; }
 .marker-pulse {
   position: absolute;
   width: 100%;
@@ -52,9 +37,7 @@ body{
   font-weight: bold;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
-.cluster-count {
-  font-size: 16px;
-}
+.cluster-count { font-size: 16px; }
 .cluster-pulse {
   position: absolute;
   width: 100%;
@@ -64,11 +47,5 @@ body{
   opacity: 0.2;
   animation: pulse 2s infinite;
 }
-.single-marker-mini, .cluster-marker-mini {
-  width: 20px;
-  height: 20px;
-  transform: scale(0.5);
-}
-.marker-number-mini, .cluster-count-mini {
-  font-size: 10px;
-}
+.single-marker-mini, .cluster-marker-mini { width: 20px; height: 20px; transform: scale(0.5); }
+.marker-number-mini, .cluster-count-mini { font-size: 10px; }

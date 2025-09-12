@@ -89,18 +89,17 @@ export default function Dashboard() {
     fetchDashboardData();
   }, [location.state, navigate]);
 
-const handleSignOut = async () => {
-  try {
-    const { error } = await supabase.auth.signOut({ scope: 'local' }); // local = no external redirect
-    if (error) throw error;
-    console.log("User signed out successfully");
-    navigate("/"); // stays in app
-  } catch (err) {
-    console.error("Error signing out:", err);
-    alert("Error signing out. Please try again.");
-  }
-};
-
+  const handleSignOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      console.log("User signed out successfully");
+      navigate("/"); // ✅ go to home instead of /signin
+    } catch (err) {
+      console.error("Error signing out:", err);
+      alert("Error signing out. Please try again.");
+    }
+  };
 
   if (loading) {
     return (
@@ -184,9 +183,9 @@ const handleSignOut = async () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 ">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard value={stats.countries} label="Countries Visited" />
-          <StatCard value={stats.cities} label="Areas Explored" />
+          {/* <StatCard value={stats.cities} label="Cities Explored" /> */}
           <StatCard value={stats.journals} label="Journal Entries" />
           <StatCard value={stats.photos} label="Photos Shared" />
         </div>

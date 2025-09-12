@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '../supabase';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css'; // Local Leaflet CSS
-import './map.css'; // Custom map styles
+impoet
 import { 
   ArrowLeft, MapPin, Calendar, Camera, X, 
   User, LogOut, Navigation, AlertCircle, Plus,

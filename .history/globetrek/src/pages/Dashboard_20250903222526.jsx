@@ -186,7 +186,7 @@ const handleSignOut = async () => {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 ">
           <StatCard value={stats.countries} label="Countries Visited" />
-          <StatCard value={stats.cities} label="Areas Explored" />
+          <StatCard value={stats.} label="Cities Explored" />
           <StatCard value={stats.journals} label="Journal Entries" />
           <StatCard value={stats.photos} label="Photos Shared" />
         </div>

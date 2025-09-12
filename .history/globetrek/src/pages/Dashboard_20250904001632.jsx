@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "../supabase";
+
 import { Plane, MapPin, Camera, Calendar, LogOut, User } from "lucide-react";
 
 export default function Dashboard() {

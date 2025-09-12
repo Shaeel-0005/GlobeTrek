@@ -1,14 +1,3 @@
-@import "tailwindcss";
-@import 'leaflet/dist/leaflet.css';
-
-
-body{
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    background-color:#EBF5FF ;
-}
-
 .custom-marker-icon {
   background: transparent;
 }
