@@ -5,7 +5,7 @@ import SignUp from "./signup";
 import MapView from "./MapViewPage";
 import AllJournals from "./AllJournalsPage";
 import NotFound from "./NotFound";
-import EditJournal from "./EditJournalPage";
+import 
 
 
 export {   
@@ -16,6 +16,5 @@ export {
      MapView,
      AllJournals,
      NotFound,
-     EditJournal
 
     };

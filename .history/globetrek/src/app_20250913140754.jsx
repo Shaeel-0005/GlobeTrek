@@ -9,7 +9,7 @@ import { supabase } from "./supabase";
 import {
   Homepage,
   Dashboard,
-  EditJournal,
+  LoginModal,
   SignUp,
   MapView,
   AllJournals,
@@ -87,7 +87,7 @@ export default function App() {
           />
           <Route path="/journal/:id" element={<DisplayJournal />} />
           <Route path="*" element={<NotFound />} />
-          <Route path="/edit-journal/:id" element={<EditJournal />} />
+          
         </Routes>
       </Router>
     </>

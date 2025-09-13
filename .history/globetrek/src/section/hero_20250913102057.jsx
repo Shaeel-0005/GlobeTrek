@@ -71,8 +71,7 @@ const Hero = () => {
           </div>
 
           <p className="text-lg text-white/90 max-w-xl">
-            The First App to Open After A Trip. Visualize, and Relive
-            Your Adventures with Ease.
+            The First App to Open After A 
           </p>
         </div>
 

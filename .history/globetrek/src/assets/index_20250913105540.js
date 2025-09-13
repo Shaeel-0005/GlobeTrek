@@ -10,6 +10,6 @@ export {
     Hero02,
     Hero03,
     Logo_H,
-    signup_image
+    
 
 };

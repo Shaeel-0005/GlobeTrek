@@ -69,10 +69,12 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
-     <div
+      <div
   className="fixed inset-0 bg-black/30 backdrop-blur-md transition-opacity"
-  onClick={handleClose}>
+  onClick={handleClose}
+/>
 </div>
+
       
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">

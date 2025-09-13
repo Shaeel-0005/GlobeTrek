@@ -71,8 +71,8 @@ const Hero = () => {
           </div>
 
           <p className="text-lg text-white/90 max-w-xl">
-            The First App to Open After A Trip. Visualize, and Relive
-            Your Adventures with Ease.
+            Discover curated itineraries, local experiences, and hassle-free
+            planning tools to make your next getaway unforgettable.
           </p>
         </div>
 
@@ -97,12 +97,12 @@ const Hero = () => {
 
     <p className="text-white/90 mb-6">
       A modern travel platform that helps solo travelers to save
-      there memories and visualize their trips.
+      there memorie
     </p>
 
     <p className="text-white/80 text-sm leading-relaxed">
-      Best to use on desktop for the full experience! i am still working on
-      the mobile version. More features coming soon!
+      Curated itineraries, local experiences, budgeting tools, and social
+      features to connect with other travelers on the go.
     </p>
   </div>
 </div>

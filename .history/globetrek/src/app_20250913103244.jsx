@@ -1,22 +1,11 @@
-import { useEffect, useState } from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
-import { supabase } from "./supabase";
-import {
-  Homepage,
-  Dashboard,
-  EditJournal,
-  SignUp,
-  MapView,
-  AllJournals,
-  NotFound,
-} from "./pages/index";
-import { DisplayJournal } from "./section/index";
-import { AddJournal } from "./components/index";
+'use client'
+
+import { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { supabase } from './supabase';
+import { Homepage, Dashboard, LoginModal, SignUp, MapView, AllJournals, NotFound } from './pages/index';
+import {DisplayJournal} from './section/index';
+import { AddJournal } from './components/index';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -24,19 +13,15 @@ export default function App() {
 
   useEffect(() => {
     const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       setLoading(false);
     };
     getUser();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-      }
-    );
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
 
     return () => {
       authListener.subscription.unsubscribe();
@@ -46,11 +31,7 @@ export default function App() {
   console.log("Auth User:", user);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        Loading...
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
   return (
@@ -70,14 +51,11 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Homepage />} />
           <Route
-            path="/signin"
-            element={user ? <Navigate to="/dashboard" /> : <Navigate to="/" />}
-          />
+  path="/signin"
+  element={user ? <Navigate to="/dashboard" /> : <Navigate to="/" />}
+/>
 
-          <Route
-            path="/signup"
-            element={user ? <Navigate to="/dashboard" /> : <SignUp />}
-          />
+          <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <SignUp />} />
           <Route path="/add-journal" element={<AddJournal />} />
           <Route path="/map-view" element={<MapView />} />
           <Route path="/all-journals" element={<AllJournals />} />
@@ -86,8 +64,8 @@ export default function App() {
             element={user ? <Dashboard /> : <Navigate to="/signin" />}
           />
           <Route path="/journal/:id" element={<DisplayJournal />} />
-          <Route path="*" element={<NotFound />} />
-          <Route path="/edit-journal/:id" element={<EditJournal />} />
+          <Route path='*' element={<NotFound />} />
+
         </Routes>
       </Router>
     </>
