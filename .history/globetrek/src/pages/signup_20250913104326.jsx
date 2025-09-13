@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
-import { signup_image } from "../assets/index";
 
 export default function Signup() {
   const [name, setName] = useState("");
@@ -11,191 +10,56 @@ export default function Signup() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [emailCheckTimeout, setEmailCheckTimeout] = useState(null);
   const navigate = useNavigate();
-
-  // Cleanup timeout on component unmount
-  useEffect(() => {
-    return () => {
-      if (emailCheckTimeout) {
-        clearTimeout(emailCheckTimeout);
-      }
-    };
-  }, [emailCheckTimeout]);
-
-  // Improved email existence check with better error handling
-  const checkEmailExists = async (email) => {
-    try {
-      // Use a realistic redirect URL that works in both dev and production
-      const isDevelopment = window.location.hostname === 'localhost' || 
-                           window.location.hostname === '127.0.0.1';
-      
-      const redirectUrl = isDevelopment 
-        ? 'https://supabase.com/dashboard' // Safe dummy URL for dev testing
-        : `${window.location.origin}/auth/reset-password`;
-
-      const { data, error } = await supabase.auth.resetPasswordForEmail(
-        email.trim().toLowerCase(),
-        {
-          redirectTo: redirectUrl,
-        }
-      );
-
-      // If no error, email likely exists
-      if (!error) {
-        console.log("Password reset email would be sent - email exists");
-        return true;
-      }
-
-      // Check for specific error codes/messages that indicate user doesn't exist
-      const errorMessage = error.message.toLowerCase();
-      const errorCode = error.code;
-
-      // Common Supabase error patterns for non-existent users
-      const userNotFoundPatterns = [
-        'user not found',
-        'unable to validate email address',
-        'email not found',
-        'invalid email',
-        'user does not exist'
-      ];
-
-      // Check if error indicates user doesn't exist
-      const userNotFound = userNotFoundPatterns.some(pattern => 
-        errorMessage.includes(pattern)
-      );
-
-      if (userNotFound || errorCode === 'user_not_found') {
-        console.log("Email not found in system");
-        return false;
-      }
-
-      // Handle rate limiting - email might exist but we can't check right now
-      if (errorMessage.includes('rate limit') || errorCode === 'rate_limit_exceeded') {
-        console.warn("Rate limited during email check");
-        return null;
-      }
-
-      // Handle network/service errors
-      if (errorMessage.includes('network') || errorMessage.includes('fetch') || 
-          errorCode === 'network_error' || errorCode === 'service_unavailable') {
-        console.warn("Network error during email check");
-        return null;
-      }
-
-      // For any other errors, log them but don't block signup
-      console.warn("Unknown error during email check:", error);
-      return null;
-
-    } catch (err) {
-      console.error("Exception during email check:", err);
-      
-      // Check if it's a network error
-      if (err.name === 'NetworkError' || err.message.includes('fetch')) {
-        return null;
-      }
-      
-      return null;
-    }
-  };
 
   // Real-time field validation
   const handleNameChange = (e) => {
     const value = e.target.value;
     setName(value);
-
+    
     if (fieldErrors.name) {
-      setFieldErrors((prev) => ({ ...prev, name: null }));
+      setFieldErrors(prev => ({ ...prev, name: null }));
     }
-
+    
     if (value.trim() && value.trim().length < 2) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        name: "Name must be at least 2 characters",
-      }));
+      setFieldErrors(prev => ({ ...prev, name: "Name must be at least 2 characters" }));
     } else if (value.length > 100) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        name: "Name must be less than 100 characters",
-      }));
+      setFieldErrors(prev => ({ ...prev, name: "Name must be less than 100 characters" }));
     }
   };
 
-  // Enhanced email validation with existence check integration
   const handleEmailChange = (e) => {
     const value = e.target.value;
     setEmail(value);
-
-    // Clear previous timeout
-    if (emailCheckTimeout) {
-      clearTimeout(emailCheckTimeout);
-      setEmailCheckTimeout(null);
-    }
-
-    // Clear previous errors
+    
     if (fieldErrors.email) {
-      setFieldErrors((prev) => ({ ...prev, email: null }));
+      setFieldErrors(prev => ({ ...prev, email: null }));
     }
-
-    // Basic format validation first
+    
     if (value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        email: "Please enter a valid email address",
-      }));
-      return;
-    }
-
-    // Only check existence for valid email formats
-    if (value.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
-      // Debounce the existence check to avoid too many requests
-      const timeoutId = setTimeout(async () => {
-        const emailExists = await checkEmailExists(value);
-        
-        if (emailExists === true) {
-          setFieldErrors((prev) => ({
-            ...prev,
-            email: "This email is already registered. Try signing in instead.",
-          }));
-        } else if (emailExists === null) {
-          // Couldn't determine - show a warning but don't block
-          setFieldErrors((prev) => ({
-            ...prev,
-            email: "⚠️ Couldn't verify email availability. You can still proceed.",
-          }));
-        }
-        // If emailExists === false, no error (email is available)
-      }, 1000); // 1 second debounce
-
-      setEmailCheckTimeout(timeoutId);
+      setFieldErrors(prev => ({ ...prev, email: "Please enter a valid email address" }));
     }
   };
 
   const handlePasswordChange = (e) => {
     const value = e.target.value;
     setPassword(value);
-
+    
     if (fieldErrors.password) {
-      setFieldErrors((prev) => ({ ...prev, password: null }));
+      setFieldErrors(prev => ({ ...prev, password: null }));
     }
-
+    
     if (value && value.length < 6) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        password: "Password must be at least 6 characters",
-      }));
+      setFieldErrors(prev => ({ ...prev, password: "Password must be at least 6 characters" }));
     } else if (value.length > 128) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        password: "Password must be less than 128 characters",
-      }));
+      setFieldErrors(prev => ({ ...prev, password: "Password must be less than 128 characters" }));
     }
   };
 
   // Client-side validation
   const validateForm = () => {
     const errors = [];
-
+    
     if (!name.trim()) {
       errors.push("Name is required");
     } else if (name.trim().length < 2) {
@@ -203,13 +67,13 @@ export default function Signup() {
     } else if (name.trim().length > 100) {
       errors.push("Name must be less than 100 characters");
     }
-
+    
     if (!email.trim()) {
       errors.push("Email is required");
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       errors.push("Please enter a valid email address");
     }
-
+    
     if (!password) {
       errors.push("Password is required");
     } else if (password.length < 6) {
@@ -217,92 +81,92 @@ export default function Signup() {
     } else if (password.length > 128) {
       errors.push("Password must be less than 128 characters");
     }
-
+    
     return errors;
+  };
+
+  // Check if email already exists by trying to send a password reset
+  const checkEmailExists = async (email) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: 'https://example.com/reset' // dummy URL, we just want to test
+      });
+      
+      // If no error, email exists in the system
+      if (!error) {
+        return true;
+      }
+      
+      // Check specific error messages
+      if (error.message.includes('User not found') || 
+          error.message.includes('Unable to validate email address')) {
+        return false; // Email doesn't exist
+      }
+      
+      // For other errors, assume email doesn't exist to avoid blocking valid signups
+      return false;
+    } catch (err) {
+      console.error("Email check error:", err);
+      return false; // Assume email doesn't exist on error
+    }
   };
 
   const parseSupabaseError = (error) => {
     console.error("Signup error:", error);
-
+    
     const message = error?.message || "";
     const code = error?.code || "";
-
-    if (
-      message.includes("Password should be at least 6 characters") ||
-      code === "weak_password"
-    ) {
+    
+    if (message.includes("Password should be at least 6 characters") || code === "weak_password") {
       return "Password must be at least 6 characters long";
     }
-
-    if (
-      message.includes("User already registered") ||
-      message.includes("email address is already registered") ||
-      code === "user_already_exists"
-    ) {
+    
+    if (message.includes("User already registered") || 
+        message.includes("email address is already registered") ||
+        code === "user_already_exists") {
       return "This email is already registered. Please try signing in instead or check your email for a confirmation link if you just signed up.";
     }
-
+    
     if (message.includes("invalid email") || code === "invalid_email") {
       return "Please enter a valid email address";
     }
-
+    
     if (message.includes("signup is disabled") || code === "signup_disabled") {
       return "New account registration is temporarily disabled. Please try again later.";
     }
-
-    if (
-      message.includes("Email rate limit exceeded") ||
-      code === "email_rate_limit_exceeded"
-    ) {
+    
+    if (message.includes("Email rate limit exceeded") || code === "email_rate_limit_exceeded") {
       return "Too many emails sent. Please wait a few minutes before trying again.";
     }
-
+    
     if (message.includes("duplicate key value") || code === "23505") {
       return "This email is already registered. Please try signing in instead.";
     }
-
-    if (
-      message.includes("fetch") ||
-      message.includes("network") ||
-      code === "network_error"
-    ) {
+    
+    if (message.includes("fetch") || message.includes("network") || code === "network_error") {
       return "Network error. Please check your internet connection and try again.";
     }
-
+    
     return "Something went wrong during signup. Please try again.";
   };
 
   const handleSignup = async (e) => {
     e.preventDefault();
-
+    
     setError("");
     setSuccess("");
     setFieldErrors({});
-
+    
     // Client-side validation
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
       setError(validationErrors[0]);
       return;
     }
-
+    
     setLoading(true);
-
+    
     try {
-      // Final email existence check before signup attempt
-      console.log("Performing final email check before signup...");
-      const emailExists = await checkEmailExists(email);
-      
-      if (emailExists === true) {
-        setError("This email is already registered. Please try signing in instead or check your email for a confirmation link if you recently signed up.");
-        setLoading(false);
-        return;
-      }
-
-      if (emailExists === null) {
-        console.warn("Couldn't verify email existence, proceeding with signup...");
-      }
-
       console.log("Starting signup process for:", email.trim().toLowerCase());
 
       // Attempt signup - trigger should handle users table insertion automatically
@@ -311,9 +175,9 @@ export default function Signup() {
         password,
         options: {
           data: {
-            name: name.trim(),
-          },
-        },
+            name: name.trim(), // Back to 'name' to match updated trigger
+          }
+        }
       });
 
       if (authError) {
@@ -328,11 +192,8 @@ export default function Signup() {
       console.log("Auth user created:", authData.user.id);
       console.log("Session exists:", !!authData.session);
       console.log("User email confirmed:", authData.user.email_confirmed_at);
-      console.log(
-        "User confirmation sent at:",
-        authData.user.confirmation_sent_at
-      );
-
+      console.log("User confirmation sent at:", authData.user.confirmation_sent_at);
+      
       // Since we have a database trigger, the users table should be populated automatically
       // Let's verify the user was created in our users table
       const { data: userProfile, error: profileError } = await supabase
@@ -341,29 +202,26 @@ export default function Signup() {
         .eq("id", authData.user.id)
         .single();
 
-      if (profileError && profileError.code !== "PGRST116") {
-        // PGRST116 = no rows returned
+      if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = no rows returned
         console.error("Error checking user profile:", profileError);
       }
 
       if (!userProfile) {
-        console.warn(
-          "User profile not found, trigger may not be working properly"
-        );
+        console.warn("User profile not found, trigger may not be working properly");
         // Fallback: manually insert the user
-        const { error: insertError } = await supabase.from("users").insert({
-          id: authData.user.id,
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-        });
+        const { error: insertError } = await supabase
+          .from("users")
+          .insert({
+            id: authData.user.id,
+            name: name.trim(),
+            email: email.trim().toLowerCase(),
+          });
 
         if (insertError) {
           console.error("Manual user insert failed:", insertError);
-          throw new Error(
-            "Account created but profile setup failed. Please contact support."
-          );
+          throw new Error("Account created but profile setup failed. Please contact support.");
         }
-
+        
         console.log("User profile created manually as fallback");
       } else {
         console.log("User profile created by trigger:", userProfile);
@@ -381,12 +239,13 @@ export default function Signup() {
         setSuccess(
           "✅ Account created successfully! Please check your email inbox and click the confirmation link to activate your account."
         );
-
+        
         // Clear the form
         setName("");
         setEmail("");
         setPassword("");
       }
+      
     } catch (err) {
       console.error("Full signup error:", err);
       const friendlyError = parseSupabaseError(err);
@@ -398,20 +257,18 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
-      {/* Background image */}
-      <div
-        className="absolute inset-0 bg-cover bg-center blur-xs"
-        style={{ backgroundImage: `url(${signup_image})` }}
-      ></div>
+  {/* Background image */}
+  <div
+    className="absolute inset-0 bg-cover bg-center blur-xl"
+    style={{ backgroundImage: "url('/your-image.jpg')" }}
+  ></div>
 
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/40"></div>
+  {/* Dark overlay */}
+  <div className="absolute inset-0 bg-black/40"></div>
 
-      {/* Signup Card */}
-      <div className="relative z-10 bg-white/90 backdrop-blur-lg p-8 rounded-lg shadow-xl max-w-md w-full">
-        <h2 className="text-2xl font-bold mb-4 text-center">
-          Sign Up for GlobeTrek
-        </h2>
+  {/* Signup Card */}
+  <div className="relative z-10 bg-white/80 backdrop-blur-lg p-8 rounded-lg shadow-xl max-w-md w-full">
+        <h2 className="text-2xl font-bold mb-4 text-center">Sign Up for GlobeTrek</h2>
 
         {success && (
           <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
@@ -435,9 +292,7 @@ export default function Signup() {
               value={name}
               onChange={handleNameChange}
               className={`w-full p-2 border rounded focus:outline-none focus:ring-2 ${
-                fieldErrors.name
-                  ? "border-red-500 focus:ring-red-600"
-                  : "focus:ring-blue-600"
+                fieldErrors.name ? 'border-red-500 focus:ring-red-600' : 'focus:ring-blue-600'
               }`}
               required
               disabled={loading}
@@ -459,9 +314,7 @@ export default function Signup() {
               value={email}
               onChange={handleEmailChange}
               className={`w-full p-2 border rounded focus:outline-none focus:ring-2 ${
-                fieldErrors.email
-                  ? "border-red-500 focus:ring-red-600"
-                  : "focus:ring-blue-600"
+                fieldErrors.email ? 'border-red-500 focus:ring-red-600' : 'focus:ring-blue-600'
               }`}
               required
               disabled={loading}
@@ -481,9 +334,7 @@ export default function Signup() {
               value={password}
               onChange={handlePasswordChange}
               className={`w-full p-2 border rounded focus:outline-none focus:ring-2 ${
-                fieldErrors.password
-                  ? "border-red-500 focus:ring-red-600"
-                  : "focus:ring-blue-600"
+                fieldErrors.password ? 'border-red-500 focus:ring-red-600' : 'focus:ring-blue-600'
               }`}
               required
               disabled={loading}
@@ -491,9 +342,7 @@ export default function Signup() {
               placeholder="Create a password (min 6 characters)"
             />
             {fieldErrors.password ? (
-              <p className="text-red-500 text-xs mt-1">
-                {fieldErrors.password}
-              </p>
+              <p className="text-red-500 text-xs mt-1">{fieldErrors.password}</p>
             ) : (
               <p className="text-xs text-gray-500 mt-1">
                 Password must be at least 6 characters long
@@ -503,36 +352,15 @@ export default function Signup() {
 
           <button
             type="submit"
-            disabled={
-              loading ||
-              !name.trim() ||
-              !email.trim() ||
-              !password ||
-              Object.values(fieldErrors).some((error) => error !== null)
-            }
+            disabled={loading || !name.trim() || !email.trim() || !password || 
+                     Object.values(fieldErrors).some(error => error !== null)}
             className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <span className="flex items-center justify-center">
-                <svg
-                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 Creating Account...
               </span>

@@ -71,7 +71,8 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
       {/* Backdrop */}
      <div
   className="fixed inset-0 bg-black/30 backdrop-blur-md transition-opacity"
-  onClick={handleClose}>
+  onClick={handleClose}
+/>
 </div>
       
       {/* Modal */}

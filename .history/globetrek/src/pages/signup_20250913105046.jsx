@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
-import { signup_image } from "../assets/index";
+import {signup_image} from "../assets/index";
 
 export default function Signup() {
   const [name, setName] = useState("");
@@ -11,93 +11,7 @@ export default function Signup() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [emailCheckTimeout, setEmailCheckTimeout] = useState(null);
   const navigate = useNavigate();
-
-  // Cleanup timeout on component unmount
-  useEffect(() => {
-    return () => {
-      if (emailCheckTimeout) {
-        clearTimeout(emailCheckTimeout);
-      }
-    };
-  }, [emailCheckTimeout]);
-
-  // Improved email existence check with better error handling
-  const checkEmailExists = async (email) => {
-    try {
-      // Use a realistic redirect URL that works in both dev and production
-      const isDevelopment = window.location.hostname === 'localhost' || 
-                           window.location.hostname === '127.0.0.1';
-      
-      const redirectUrl = isDevelopment 
-        ? 'https://supabase.com/dashboard' // Safe dummy URL for dev testing
-        : `${window.location.origin}/auth/reset-password`;
-
-      const { data, error } = await supabase.auth.resetPasswordForEmail(
-        email.trim().toLowerCase(),
-        {
-          redirectTo: redirectUrl,
-        }
-      );
-
-      // If no error, email likely exists
-      if (!error) {
-        console.log("Password reset email would be sent - email exists");
-        return true;
-      }
-
-      // Check for specific error codes/messages that indicate user doesn't exist
-      const errorMessage = error.message.toLowerCase();
-      const errorCode = error.code;
-
-      // Common Supabase error patterns for non-existent users
-      const userNotFoundPatterns = [
-        'user not found',
-        'unable to validate email address',
-        'email not found',
-        'invalid email',
-        'user does not exist'
-      ];
-
-      // Check if error indicates user doesn't exist
-      const userNotFound = userNotFoundPatterns.some(pattern => 
-        errorMessage.includes(pattern)
-      );
-
-      if (userNotFound || errorCode === 'user_not_found') {
-        console.log("Email not found in system");
-        return false;
-      }
-
-      // Handle rate limiting - email might exist but we can't check right now
-      if (errorMessage.includes('rate limit') || errorCode === 'rate_limit_exceeded') {
-        console.warn("Rate limited during email check");
-        return null;
-      }
-
-      // Handle network/service errors
-      if (errorMessage.includes('network') || errorMessage.includes('fetch') || 
-          errorCode === 'network_error' || errorCode === 'service_unavailable') {
-        console.warn("Network error during email check");
-        return null;
-      }
-
-      // For any other errors, log them but don't block signup
-      console.warn("Unknown error during email check:", error);
-      return null;
-
-    } catch (err) {
-      console.error("Exception during email check:", err);
-      
-      // Check if it's a network error
-      if (err.name === 'NetworkError' || err.message.includes('fetch')) {
-        return null;
-      }
-      
-      return null;
-    }
-  };
 
   // Real-time field validation
   const handleNameChange = (e) => {
@@ -121,53 +35,19 @@ export default function Signup() {
     }
   };
 
-  // Enhanced email validation with existence check integration
   const handleEmailChange = (e) => {
     const value = e.target.value;
     setEmail(value);
 
-    // Clear previous timeout
-    if (emailCheckTimeout) {
-      clearTimeout(emailCheckTimeout);
-      setEmailCheckTimeout(null);
-    }
-
-    // Clear previous errors
     if (fieldErrors.email) {
       setFieldErrors((prev) => ({ ...prev, email: null }));
     }
 
-    // Basic format validation first
     if (value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
       setFieldErrors((prev) => ({
         ...prev,
         email: "Please enter a valid email address",
       }));
-      return;
-    }
-
-    // Only check existence for valid email formats
-    if (value.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
-      // Debounce the existence check to avoid too many requests
-      const timeoutId = setTimeout(async () => {
-        const emailExists = await checkEmailExists(value);
-        
-        if (emailExists === true) {
-          setFieldErrors((prev) => ({
-            ...prev,
-            email: "This email is already registered. Try signing in instead.",
-          }));
-        } else if (emailExists === null) {
-          // Couldn't determine - show a warning but don't block
-          setFieldErrors((prev) => ({
-            ...prev,
-            email: "⚠️ Couldn't verify email availability. You can still proceed.",
-          }));
-        }
-        // If emailExists === false, no error (email is available)
-      }, 1000); // 1 second debounce
-
-      setEmailCheckTimeout(timeoutId);
     }
   };
 
@@ -219,6 +99,37 @@ export default function Signup() {
     }
 
     return errors;
+  };
+
+  // Check if email already exists by trying to send a password reset
+  const checkEmailExists = async (email) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        {
+          redirectTo: "https://example.com/reset", // dummy URL, we just want to test
+        }
+      );
+
+      // If no error, email exists in the system
+      if (!error) {
+        return true;
+      }
+
+      // Check specific error messages
+      if (
+        error.message.includes("User not found") ||
+        error.message.includes("Unable to validate email address")
+      ) {
+        return false; // Email doesn't exist
+      }
+
+      // For other errors, assume email doesn't exist to avoid blocking valid signups
+      return false;
+    } catch (err) {
+      console.error("Email check error:", err);
+      return false; // Assume email doesn't exist on error
+    }
   };
 
   const parseSupabaseError = (error) => {
@@ -289,20 +200,6 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      // Final email existence check before signup attempt
-      console.log("Performing final email check before signup...");
-      const emailExists = await checkEmailExists(email);
-      
-      if (emailExists === true) {
-        setError("This email is already registered. Please try signing in instead or check your email for a confirmation link if you recently signed up.");
-        setLoading(false);
-        return;
-      }
-
-      if (emailExists === null) {
-        console.warn("Couldn't verify email existence, proceeding with signup...");
-      }
-
       console.log("Starting signup process for:", email.trim().toLowerCase());
 
       // Attempt signup - trigger should handle users table insertion automatically
@@ -311,7 +208,7 @@ export default function Signup() {
         password,
         options: {
           data: {
-            name: name.trim(),
+            name: name.trim(), // Back to 'name' to match updated trigger
           },
         },
       });
@@ -400,15 +297,16 @@ export default function Signup() {
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
       {/* Background image */}
       <div
-        className="absolute inset-0 bg-cover bg-center blur-xs"
-        style={{ backgroundImage: `url(${signup_image})` }}
-      ></div>
+  className="absolute inset-0 bg-cover bg-center blur-xl"
+  style={{ backgroundImage: `url(${signup_image})` }}
+></div>
+
 
       {/* Dark overlay */}
       <div className="absolute inset-0 bg-black/40"></div>
 
       {/* Signup Card */}
-      <div className="relative z-10 bg-white/90 backdrop-blur-lg p-8 rounded-lg shadow-xl max-w-md w-full">
+      <div className="relative z-10 bg-white/80 backdrop-blur-lg p-8 rounded-lg shadow-xl max-w-md w-full">
         <h2 className="text-2xl font-bold mb-4 text-center">
           Sign Up for GlobeTrek
         </h2>

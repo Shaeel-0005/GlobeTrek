@@ -71,8 +71,8 @@ const Hero = () => {
           </div>
 
           <p className="text-lg text-white/90 max-w-xl">
-            The First App to Open After A Trip. Visualize, and Relive
-            Your Adventures with Ease.
+            Discover curated itineraries, local experiences, and hassle-free
+            planning tools to make your next getaway unforgettable.
           </p>
         </div>
 
@@ -101,8 +101,7 @@ const Hero = () => {
     </p>
 
     <p className="text-white/80 text-sm leading-relaxed">
-      Best to use on desktop for the full experience! i am still working on
-      the mobile version. More features coming soon!
+      Best to use on desktop for the full experience! 
     </p>
   </div>
 </div>

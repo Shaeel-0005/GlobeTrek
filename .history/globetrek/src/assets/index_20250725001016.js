@@ -1,1 +1,0 @@
-import homeimage from './home-image.jpg';

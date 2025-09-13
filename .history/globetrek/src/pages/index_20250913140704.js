@@ -16,6 +16,5 @@ export {
      MapView,
      AllJournals,
      NotFound,
-     EditJournal
 
     };

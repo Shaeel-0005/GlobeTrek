@@ -400,7 +400,7 @@ export default function Signup() {
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
       {/* Background image */}
       <div
-        className="absolute inset-0 bg-cover bg-center blur-xs"
+        className="absolute inset-0 bg-cover bg-center blur-sm"
         style={{ backgroundImage: `url(${signup_image})` }}
       ></div>
 
@@ -408,7 +408,7 @@ export default function Signup() {
       <div className="absolute inset-0 bg-black/40"></div>
 
       {/* Signup Card */}
-      <div className="relative z-10 bg-white/90 backdrop-blur-lg p-8 rounded-lg shadow-xl max-w-md w-full">
+      <div className="relative z-10 bg-white/80 backdrop-blur-lg p-8 rounded-lg shadow-xl max-w-md w-full">
         <h2 className="text-2xl font-bold mb-4 text-center">
           Sign Up for GlobeTrek
         </h2>

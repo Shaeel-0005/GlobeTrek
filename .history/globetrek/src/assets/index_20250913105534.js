@@ -3,13 +3,12 @@ import Hero01 from './hero01.png';
 import Hero02 from './hero02.png';
 import Hero03 from './hero03.png';
 import Logo_H from './logo_horizontal.png';
-import signup_image from './signup_image.jpg'
+import signup_image from './signup_image.'
 export {
     Homeimg,
     Hero01,
     Hero02,
     Hero03,
     Logo_H,
-    signup_image
 
 };

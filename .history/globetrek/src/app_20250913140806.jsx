@@ -9,7 +9,7 @@ import { supabase } from "./supabase";
 import {
   Homepage,
   Dashboard,
-  EditJournal,
+  Edi,
   SignUp,
   MapView,
   AllJournals,
