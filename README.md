@@ -1,6 +1,7 @@
 # 🌍 GlobeTrek
 
 GlobeTrek is a travel journaling platform that lets users document their trips, share experiences, and visualize visited locations on interactive maps. Built with modern web technologies and powered by **Supabase** for authentication and real-time data storage, GlobeTrek is designed to make travel logging simple, interactive, and fun.
+<img width="1366" height="774" alt="globetrek (2)" src="https://github.com/user-attachments/assets/dc622a85-3385-4650-a066-cc8c4e8a6c32" />
 
 ---
 
