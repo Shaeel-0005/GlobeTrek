@@ -11,17 +11,8 @@ export default function Signup() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [emailCheckTimeout, setEmailCheckTimeout] = useState(null);
   const navigate = useNavigate();
 
-  // Cleanup timeout on component unmount
-  useEffect(() => {
-    return () => {
-      if (emailCheckTimeout) {
-        clearTimeout(emailCheckTimeout);
-      }
-    };
-  }, [emailCheckTimeout]);
 
   // Improved email existence check with better error handling
   const checkEmailExists = async (email) => {
@@ -123,53 +114,22 @@ export default function Signup() {
 
   // Enhanced email validation with existence check integration
   const handleEmailChange = (e) => {
-    const value = e.target.value;
-    setEmail(value);
+  const value = e.target.value;
+  setEmail(value);
 
-    // Clear previous timeout
-    if (emailCheckTimeout) {
-      clearTimeout(emailCheckTimeout);
-      setEmailCheckTimeout(null);
-    }
+  // Clear previous errors
+  if (fieldErrors.email) {
+    setFieldErrors((prev) => ({ ...prev, email: null }));
+  }
 
-    // Clear previous errors
-    if (fieldErrors.email) {
-      setFieldErrors((prev) => ({ ...prev, email: null }));
-    }
-
-    // Basic format validation first
-    if (value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        email: "Please enter a valid email address",
-      }));
-      return;
-    }
-
-    // Only check existence for valid email formats
-    if (value.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
-      // Debounce the existence check to avoid too many requests
-      const timeoutId = setTimeout(async () => {
-        const emailExists = await checkEmailExists(value);
-        
-        if (emailExists === true) {
-          setFieldErrors((prev) => ({
-            ...prev,
-            email: "This email is already registered. Try signing in instead.",
-          }));
-        } else if (emailExists === null) {
-          // Couldn't determine - show a warning but don't block
-          setFieldErrors((prev) => ({
-            ...prev,
-            email: "⚠️ Couldn't verify email availability. You can still proceed.",
-          }));
-        }
-        // If emailExists === false, no error (email is available)
-      }, 1000); // 1 second debounce
-
-      setEmailCheckTimeout(timeoutId);
-    }
-  };
+  // Only validate format
+  if (value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
+    setFieldErrors((prev) => ({
+      ...prev,
+      email: "Please enter a valid email address",
+    }));
+  }
+};
 
   const handlePasswordChange = (e) => {
     const value = e.target.value;
@@ -273,37 +233,29 @@ export default function Signup() {
   };
 
   const handleSignup = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    setError("");
-    setSuccess("");
-    setFieldErrors({});
+  setError("");
+  setSuccess("");
+  setFieldErrors({});
 
-    // Client-side validation
-    const validationErrors = validateForm();
-    if (validationErrors.length > 0) {
-      setError(validationErrors[0]);
-      return;
-    }
+  // Client-side validation
+  const validationErrors = validateForm();
+  if (validationErrors.length > 0) {
+    setError(validationErrors[0]);
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      // Final email existence check before signup attempt
-      console.log("Performing final email check before signup...");
-      const emailExists = await checkEmailExists(email);
-      
-      if (emailExists === true) {
-        setError("This email is already registered. Please try signing in instead or check your email for a confirmation link if you recently signed up.");
-        setLoading(false);
-        return;
-      }
+  try {
+    // Remove these lines:
+    // console.log("Performing final email check before signup...");
+    // const emailExists = await checkEmailExists(email);
+    // if (emailExists === true) { ... }
+    // if (emailExists === null) { ... }
 
-      if (emailExists === null) {
-        console.warn("Couldn't verify email existence, proceeding with signup...");
-      }
-
-      console.log("Starting signup process for:", email.trim().toLowerCase());
+    console.log("Starting signup process for:", email.trim().toLowerCase());
 
       // Attempt signup - trigger should handle users table insertion automatically
       const { data: authData, error: authError } = await supabase.auth.signUp({
