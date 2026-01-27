@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react'; // ✅ Add useMemo
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import L from 'leaflet';
@@ -16,6 +16,7 @@ const MapView = () => {
   const mapContainer = useRef(null);
   const map = useRef(null);
   const markersRef = useRef([]);
+  const isMapInitialized = useRef(false); // ✅ Track initialization separately
   
   const [journals, setJournals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,19 +31,18 @@ const MapView = () => {
   const [previewJournal, setPreviewJournal] = useState(null);
   const [previewTimer, setPreviewTimer] = useState(null);
 
-  // ✅ FIXED: Use useMemo to prevent recalculation on every render
   const filteredJournals = useMemo(() => {
     return journals.filter(journal => 
       journal.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       journal.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       journal.description?.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [journals, searchTerm]); // Only recalculate when journals or searchTerm changes
+  }, [journals, searchTerm]);
 
   useEffect(() => {
     const fetchUserAndJournals = async () => {
       try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const {  { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) {
           navigate('/');
           return;
@@ -63,7 +63,6 @@ const MapView = () => {
           .order('date', { ascending: false });
         
         if (journalsError) throw journalsError;
-        console.log('Fetched journals:', journalsData);
         setJournals(journalsData || []);
       } catch (err) {
         console.error('Fetch error:', err);
@@ -76,74 +75,25 @@ const MapView = () => {
     fetchUserAndJournals();
   }, [navigate]);
 
-  // ✅ FIXED: Separate map initialization from data loading
+  // ✅ FIXED: Initialize map ONLY ONCE when data is ready
   useEffect(() => {
-    if (!mapLoaded && filteredJournals.length > 0 && mapContainer.current && !map.current) {
-      loadLeafletMap();
+    if (!mapContainer.current || isMapInitialized.current || filteredJournals.length === 0) {
+      return;
     }
+
+    initializeMap();
     
-    // ✅ FIXED: Proper cleanup - only run when component unmounts
+    // ✅ FIXED: Cleanup ONLY on unmount (empty dependency array)
     return () => {
-      if (map.current) {
-        // Remove all markers first
-        markersRef.current.forEach(marker => {
-          if (marker && map.current.hasLayer(marker)) {
-            map.current.removeLayer(marker);
-          }
-        });
-        markersRef.current = [];
-        
-        // Remove map instance
-        map.current.remove();
-        map.current = null;
-        setMapLoaded(false);
-      }
+      console.log('Cleaning up map on unmount');
+      cleanupMap();
     };
-  }, [mapLoaded, filteredJournals.length]); // ✅ Only depend on these
+  }, [filteredJournals.length]); // Only run when data changes
 
-  const groupJournalsByProximity = useCallback((journals) => {
-    const groups = [];
-    const used = new Set();
-    const PROXIMITY_THRESHOLD = 0.05;
-
-    journals.forEach((journal, i) => {
-      if (used.has(i) || !journal.lat || !journal.lng) return;
-
-      const group = [journal];
-      used.add(i);
-
-      journals.forEach((other, j) => {
-        if (used.has(j) || i === j || !other.lat || !other.lng) return;
-
-        const distance = Math.sqrt(
-          Math.pow(journal.lat - other.lat, 2) + 
-          Math.pow(journal.lng - other.lng, 2)
-        );
-
-        if (distance < PROXIMITY_THRESHOLD) {
-          group.push(other);
-          used.add(j);
-        }
-      });
-
-      groups.push(group);
-    });
-
-    return groups;
-  }, []);
-
-  const loadLeafletMap = async () => {
-    if (mapLoaded || !mapContainer.current || map.current) return; // ✅ Prevent duplicate initialization
-
+  const initializeMap = () => {
     try {
-      // ✅ Clear any existing markers before creating new map
-      markersRef.current.forEach(marker => {
-        if (marker && map.current?.hasLayer(marker)) {
-          map.current.removeLayer(marker);
-        }
-      });
-      markersRef.current = [];
-
+      isMapInitialized.current = true;
+      
       map.current = L.map(mapContainer.current, {
         zoomControl: false,
         scrollWheelZoom: true,
@@ -171,10 +121,7 @@ const MapView = () => {
         const lat = parseFloat(mainJournal.lat);
         const lng = parseFloat(mainJournal.lng);
         
-        if (isNaN(lat) || isNaN(lng)) {
-          console.warn('Invalid coordinates for journal:', mainJournal.title, lat, lng);
-          return;
-        }
+        if (isNaN(lat) || isNaN(lng)) return;
 
         let markerHtml, clickHandler;
 
@@ -259,22 +206,67 @@ const MapView = () => {
         const bounds = group.getBounds();
         if (bounds.isValid()) {
           map.current.fitBounds(bounds.pad(0.1), { maxZoom: 12, animate: true });
-        } else {
-          console.warn('Invalid bounds, using default view');
         }
-      } else {
-        console.warn('No valid locations to map');
       }
 
       setMapLoaded(true);
-      console.log('Map loaded successfully');
+      console.log('Map initialized successfully');
     } catch (err) {
-      console.error('Map load error:', err);
+      console.error('Map initialization error:', err);
       setError('Failed to load map. Check network or refresh.');
+      isMapInitialized.current = false; // Reset on error
     }
   };
 
-  // Rest of handlers remain the same...
+  const cleanupMap = () => {
+    if (!map.current) return;
+    
+    // Remove all markers
+    markersRef.current.forEach(marker => {
+      if (marker && map.current.hasLayer(marker)) {
+        map.current.removeLayer(marker);
+      }
+    });
+    markersRef.current = [];
+    
+    // Remove map instance
+    map.current.remove();
+    map.current = null;
+    isMapInitialized.current = false;
+    setMapLoaded(false);
+  };
+
+  const groupJournalsByProximity = (journals) => {
+    const groups = [];
+    const used = new Set();
+    const PROXIMITY_THRESHOLD = 0.05;
+
+    journals.forEach((journal, i) => {
+      if (used.has(i) || !journal.lat || !journal.lng) return;
+
+      const group = [journal];
+      used.add(i);
+
+      journals.forEach((other, j) => {
+        if (used.has(j) || i === j || !other.lat || !other.lng) return;
+
+        const distance = Math.sqrt(
+          Math.pow(journal.lat - other.lat, 2) + 
+          Math.pow(journal.lng - other.lng, 2)
+        );
+
+        if (distance < PROXIMITY_THRESHOLD) {
+          group.push(other);
+          used.add(j);
+        }
+      });
+
+      groups.push(group);
+    });
+
+    return groups;
+  };
+
   const showPreview = (journal) => {
     if (previewTimer) clearTimeout(previewTimer);
     setPreviewJournal(journal);
@@ -307,6 +299,8 @@ const MapView = () => {
   };
 
   useEffect(() => setCurrentImageIndex(0), [selectedJournal]);
+
+  // ... rest of component (loading, error, and JSX remain the same)
 
   // ... rest of component (loading, error, and return JSX remain the same)
 
