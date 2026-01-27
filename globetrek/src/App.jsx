@@ -17,6 +17,7 @@ import {
 } from "./pages/index";
 import { DisplayJournal } from "./section/index";
 import { AddJournal } from "./components/index";
+import AuthCallback from "./components/AuthCallback"; // Add this import
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -30,6 +31,7 @@ export default function App() {
       setUser(user);
       setLoading(false);
     };
+
     getUser();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
@@ -65,7 +67,6 @@ export default function App() {
       >
         Sign Out
       </button> */}
-
       <Router>
         <Routes>
           <Route path="/" element={<Homepage />} />
@@ -73,11 +74,14 @@ export default function App() {
             path="/signin"
             element={user ? <Navigate to="/dashboard" /> : <Navigate to="/" />}
           />
-
           <Route
             path="/signup"
             element={user ? <Navigate to="/dashboard" /> : <SignUp />}
           />
+          
+          {/* ADD THIS ROUTE - For email confirmation callback */}
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          
           <Route path="/add-journal" element={<AddJournal />} />
           <Route path="/map-view" element={<MapView />} />
           <Route path="/all-journals" element={<AllJournals />} />
@@ -86,8 +90,8 @@ export default function App() {
             element={user ? <Dashboard /> : <Navigate to="/signin" />}
           />
           <Route path="/journal/:id" element={<DisplayJournal />} />
-          <Route path="*" element={<NotFound />} />
           <Route path="/edit-journal/:id" element={<EditJournal />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>
     </>
