@@ -1,51 +1,119 @@
-/* index.css */
-.custom-marker-icon { background: transparent; }
+/* Custom marker styles */
 .single-marker {
+  position: relative;
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid #3B82F6;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
-.marker-number { font-weight: bold; color: #3B82F6; }
-.marker-pulse {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: #3B82F6;
-  opacity: 0.2;
-  animation: pulse 2s infinite;
-}
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 0.2; }
-  100% { transform: scale(1.5); opacity: 0; }
-}
-.cluster-marker {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #EF4444;
+
+.marker-number {
+  position: relative;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
   color: white;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
 }
-.cluster-count { font-size: 16px; }
-.cluster-pulse {
+
+.marker-pulse {
   position: absolute;
-  width: 100%;
-  height: 100%;
+  width: 40px;
+  height: 40px;
+  background: rgba(59, 130, 246, 0.2);
   border-radius: 50%;
-  background: #EF4444;
-  opacity: 0.2;
   animation: pulse 2s infinite;
 }
-.single-marker-mini, .cluster-marker-mini { width: 20px; height: 20px; transform: scale(0.5); }
-.marker-number-mini, .cluster-count-mini { font-size: 10px; }
+
+.cluster-marker {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cluster-count {
+  position: relative;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+}
+
+.cluster-pulse {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background: rgba(16, 185, 129, 0.2);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.8); opacity: 0.7; }
+  70% { transform: scale(1.2); opacity: 0.3; }
+  100% { transform: scale(0.8); opacity: 0.7; }
+}
+
+/* Mini markers for legend */
+.single-marker-mini {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.marker-number-mini {
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 10px;
+}
+
+.cluster-marker-mini {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cluster-count-mini {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 10px;
+}

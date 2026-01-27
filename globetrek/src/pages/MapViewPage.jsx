@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom'; // ✅ FIXED
 import { supabase } from '../supabase';
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css'; // Local Leaflet CSS
-import './map.css'; // Custom map styles
+import 'leaflet/dist/leaflet.css';
+import './map.css';
 import { 
   ArrowLeft, MapPin, Calendar, Camera, X, 
   User, LogOut, Navigation, AlertCircle, Plus,
@@ -11,7 +12,7 @@ import {
 } from 'lucide-react';
 
 const MapView = () => {
-  const navigate = (path) => console.log(`Navigate to: ${path}`);
+  const navigate = useNavigate(); // ✅ FIXED: Actual navigation
   const mapContainer = useRef(null);
   const map = useRef(null);
   const markersRef = useRef([]);
@@ -28,6 +29,13 @@ const MapView = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [previewJournal, setPreviewJournal] = useState(null);
   const [previewTimer, setPreviewTimer] = useState(null);
+
+  // ✅ Filter journals based on search
+  const filteredJournals = journals.filter(journal => 
+    journal.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    journal.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    journal.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   useEffect(() => {
     const fetchUserAndJournals = async () => {
@@ -64,10 +72,10 @@ const MapView = () => {
     };
 
     fetchUserAndJournals();
-  }, []);
+  }, [navigate]); // ✅ FIXED: Added dependency
 
   useEffect(() => {
-    if (!loading && !mapLoaded && journals.length > 0) {
+    if (!loading && !mapLoaded && filteredJournals.length > 0) { // ✅ Use filtered journals
       loadLeafletMap();
     }
     return () => {
@@ -78,7 +86,7 @@ const MapView = () => {
         setMapLoaded(false);
       }
     };
-  }, [loading, mapLoaded, journals]);
+  }, [loading, mapLoaded, filteredJournals]); // ✅ Use filtered journals
 
   const groupJournalsByProximity = useCallback((journals) => {
     const groups = [];
@@ -113,7 +121,7 @@ const MapView = () => {
   }, []);
 
   const loadLeafletMap = async () => {
-    console.log('Loading map with journals:', journals);
+    console.log('Loading map with journals:', filteredJournals); // ✅ Use filtered
     if (mapLoaded || !mapContainer.current) return;
 
     try {
@@ -133,7 +141,7 @@ const MapView = () => {
       }).addTo(map.current);
 
       const journalGroups = groupJournalsByProximity(
-        journals.filter(j => j.lat && j.lng && !isNaN(j.lat) && !isNaN(j.lng))
+        filteredJournals.filter(j => j.lat && j.lng && !isNaN(j.lat) && !isNaN(j.lng)) // ✅ Use filtered
       );
 
       const validLocations = [];
@@ -211,7 +219,7 @@ const MapView = () => {
       });
 
       if (validLocations.length > 1) {
-        const sortedJournals = [...journals]
+        const sortedJournals = [...filteredJournals] // ✅ Use filtered
           .filter(j => j.lat && j.lng && j.date)
           .sort((a, b) => new Date(a.date) - new Date(b.date));
 
@@ -310,8 +318,8 @@ const MapView = () => {
     );
   }
 
-  const journalsWithCoords = journals.filter(j => j.lat && j.lng && !isNaN(j.lat) && !isNaN(j.lng));
-  const journalsWithoutCoords = journals.filter(j => !j.lat || !j.lng || isNaN(j.lat) || isNaN(j.lng));
+  const journalsWithCoords = filteredJournals.filter(j => j.lat && j.lng && !isNaN(j.lat) && !isNaN(j.lng)); // ✅ Use filtered
+  const journalsWithoutCoords = filteredJournals.filter(j => !j.lat || !j.lng || isNaN(j.lat) || isNaN(j.lng)); // ✅ Use filtered
 
   return (
     <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-blue-50 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
@@ -403,7 +411,7 @@ const MapView = () => {
       )}
 
       <div className={`relative ${isFullscreen ? 'h-screen' : 'h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)]'}`}>
-        {journals.length > 0 ? (
+        {filteredJournals.length > 0 ? ( // ✅ Use filtered
           <>
             <div ref={mapContainer} className="w-full h-full" role="region" aria-label="Journey Map" />
             <div className="absolute top-4 right-4 z-10 flex flex-col space-y-2">
