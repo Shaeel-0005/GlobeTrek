@@ -241,7 +241,7 @@ const MapView = () => {
         `;
         clickHandler = () => {
           setSelectedJournal(mainJournal);
-          clearPreview();
+          hidePreview();
         };
         markerIndex++;
       } else {
@@ -253,7 +253,7 @@ const MapView = () => {
         `;
         clickHandler = () => {
           setSelectedCluster(group);
-          clearPreview();
+          hidePreview();
         };
       }
 
@@ -406,6 +406,15 @@ const MapView = () => {
   const clearPreview = useCallback(() => {
     if (previewTimerRef.current) {
       clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    // Don't hide - just clear the timer!
+  }, []);
+
+  const hidePreview = useCallback(() => {
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
     }
     setPreviewJournal(null);
   }, []);
@@ -807,7 +816,7 @@ const MapView = () => {
                 <button
                   onClick={() => {
                     setSelectedJournal(previewJournal);
-                    clearPreview();
+                    hidePreview();
                   }}
                   className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline focus:outline-none focus:underline"
                 >
