@@ -15,80 +15,80 @@ export default function Signup() {
 
 
   // Improved email existence check with better error handling
-  const checkEmailExists = async (email) => {
-    try {
-      // Use a realistic redirect URL that works in both dev and production
-      const isDevelopment = window.location.hostname === 'localhost' || 
-                           window.location.hostname === '127.0.0.1';
+  // const checkEmailExists = async (email) => {
+  //   try {
+  //     // Use a realistic redirect URL that works in both dev and production
+  //     const isDevelopment = window.location.hostname === 'localhost' || 
+  //                          window.location.hostname === '127.0.0.1';
       
-      const redirectUrl = isDevelopment 
-        ? 'https://supabase.com/dashboard' // Safe dummy URL for dev testing
-        : `${window.location.origin}/auth/reset-password`;
+  //     const redirectUrl = isDevelopment 
+  //       ? 'https://supabase.com/dashboard' // Safe dummy URL for dev testing
+  //       : `${window.location.origin}/auth/reset-password`;
 
-      const { data, error } = await supabase.auth.resetPasswordForEmail(
-        email.trim().toLowerCase(),
-        {
-          redirectTo: redirectUrl,
-        }
-      );
+  //     const { data, error } = await supabase.auth.resetPasswordForEmail(
+  //       email.trim().toLowerCase(),
+  //       {
+  //         redirectTo: redirectUrl,
+  //       }
+  //     );
 
-      // If no error, email likely exists
-      if (!error) {
-        console.log("Password reset email would be sent - email exists");
-        return true;
-      }
+  //     // If no error, email likely exists
+  //     if (!error) {
+  //       console.log("Password reset email would be sent - email exists");
+  //       return true;
+  //     }
 
-      // Check for specific error codes/messages that indicate user doesn't exist
-      const errorMessage = error.message.toLowerCase();
-      const errorCode = error.code;
+  //     // Check for specific error codes/messages that indicate user doesn't exist
+  //     const errorMessage = error.message.toLowerCase();
+  //     const errorCode = error.code;
 
-      // Common Supabase error patterns for non-existent users
-      const userNotFoundPatterns = [
-        'user not found',
-        'unable to validate email address',
-        'email not found',
-        'invalid email',
-        'user does not exist'
-      ];
+  //     // Common Supabase error patterns for non-existent users
+  //     const userNotFoundPatterns = [
+  //       'user not found',
+  //       'unable to validate email address',
+  //       'email not found',
+  //       'invalid email',
+  //       'user does not exist'
+  //     ];
 
-      // Check if error indicates user doesn't exist
-      const userNotFound = userNotFoundPatterns.some(pattern => 
-        errorMessage.includes(pattern)
-      );
+  //     // Check if error indicates user doesn't exist
+  //     const userNotFound = userNotFoundPatterns.some(pattern => 
+  //       errorMessage.includes(pattern)
+  //     );
 
-      if (userNotFound || errorCode === 'user_not_found') {
-        console.log("Email not found in system");
-        return false;
-      }
+  //     if (userNotFound || errorCode === 'user_not_found') {
+  //       console.log("Email not found in system");
+  //       return false;
+  //     }
 
-      // Handle rate limiting - email might exist but we can't check right now
-      if (errorMessage.includes('rate limit') || errorCode === 'rate_limit_exceeded') {
-        console.warn("Rate limited during email check");
-        return null;
-      }
+  //     // Handle rate limiting - email might exist but we can't check right now
+  //     if (errorMessage.includes('rate limit') || errorCode === 'rate_limit_exceeded') {
+  //       console.warn("Rate limited during email check");
+  //       return null;
+  //     }
 
-      // Handle network/service errors
-      if (errorMessage.includes('network') || errorMessage.includes('fetch') || 
-          errorCode === 'network_error' || errorCode === 'service_unavailable') {
-        console.warn("Network error during email check");
-        return null;
-      }
+  //     // Handle network/service errors
+  //     if (errorMessage.includes('network') || errorMessage.includes('fetch') || 
+  //         errorCode === 'network_error' || errorCode === 'service_unavailable') {
+  //       console.warn("Network error during email check");
+  //       return null;
+  //     }
 
-      // For any other errors, log them but don't block signup
-      console.warn("Unknown error during email check:", error);
-      return null;
+  //     // For any other errors, log them but don't block signup
+  //     console.warn("Unknown error during email check:", error);
+  //     return null;
 
-    } catch (err) {
-      console.error("Exception during email check:", err);
+  //   } catch (err) {
+  //     console.error("Exception during email check:", err);
       
-      // Check if it's a network error
-      if (err.name === 'NetworkError' || err.message.includes('fetch')) {
-        return null;
-      }
+  //     // Check if it's a network error
+  //     if (err.name === 'NetworkError' || err.message.includes('fetch')) {
+  //       return null;
+  //     }
       
-      return null;
-    }
-  };
+  //     return null;
+  //   }
+  // };
 
   // Real-time field validation
   const handleNameChange = (e) => {
