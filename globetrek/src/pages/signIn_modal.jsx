@@ -10,47 +10,127 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const parseLoginError = (error) => {
+    console.error('Login error:', error);
+    
+    const message = error?.message || '';
+    const code = error?.code || '';
+
+    // Invalid credentials
+    if (message.includes('Invalid login credentials') || 
+        message.includes('invalid login') ||
+        code === 'invalid_credentials') {
+      return 'Incorrect email or password. Please try again.';
+    }
+
+    // Email not confirmed
+    if (message.includes('Email not confirmed') || 
+        message.includes('not confirmed') ||
+        code === 'email_not_confirmed') {
+      return 'Please check your email and confirm your account before signing in.';
+    }
+
+    // Rate limiting
+    if (message.includes('rate limit') || 
+        message.includes('Too many requests') ||
+        code === 'over_request_rate_limit') {
+      return 'Too many login attempts. Please wait a few minutes and try again.';
+    }
+
+    // Network errors
+    if (message.includes('fetch') || 
+        message.includes('network') ||
+        code === 'network_error') {
+      return 'Network error. Please check your internet connection.';
+    }
+
+    // User not found
+    if (message.includes('User not found') || code === 'user_not_found') {
+      return 'No account found with this email. Please sign up first.';
+    }
+
+    // Default error
+    return 'Login failed. Please check your credentials and try again.';
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     
     try {
-      // 1. Sign in with Supabase Auth
+      const trimmedEmail = email.trim().toLowerCase();
+
+      // Step 1: Sign in with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
+        email: trimmedEmail,
         password,
       });
       
-      if (authError) throw authError;
+      if (authError) {
+        throw authError;
+      }
+
+      if (!authData?.session || !authData?.user) {
+        throw new Error('No session created');
+      }
+
+      console.log('Login successful:', authData.user.id);
       
-      // 2. Get user name from users table
+      // Step 2: Get user profile from users table
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('name')
-        .eq('id', authData.session.user.id)
+        .select('name, email')
+        .eq('id', authData.user.id)
         .single();
-        
-      const userName = userData?.name || 'User';
       
-      // 3. Close modal and navigate
+      // Step 3: Handle missing profile
+      if (userError) {
+        console.error('Error fetching user profile:', userError);
+        
+        // If profile doesn't exist, create it
+        if (userError.code === 'PGRST116') {
+          console.log('User profile not found, creating one...');
+          
+          const userName = authData.user.user_metadata?.name || 
+                          authData.user.email?.split('@')[0] || 
+                          'User';
+          
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert({
+              id: authData.user.id,
+              name: userName,
+              email: authData.user.email,
+            });
+          
+          if (insertError) {
+            console.error('Failed to create user profile:', insertError);
+          }
+          
+          // Continue with login even if profile creation fails
+          onClose();
+          navigate('/dashboard', { state: { userName } });
+          return;
+        }
+        
+        // For other errors, continue but log them
+        console.warn('Continuing without profile data:', userError);
+      }
+      
+      const userName = userData?.name || 
+                      authData.user.user_metadata?.name || 
+                      authData.user.email?.split('@')[0] || 
+                      'User';
+      
+      // Step 4: Close modal and navigate to dashboard
       onClose();
       navigate('/dashboard', { state: { userName } });
       
     } catch (err) {
-      console.error('Login error:', err);
-      let friendlyError = 'Login failed. Please try again.';
-      
-      if (err.message.includes('Invalid login credentials')) {
-        friendlyError = 'Incorrect email or password.';
-      } else if (err.message.includes('Email not confirmed')) {
-        friendlyError = 'Please confirm your email first.';
-      } else if (err.message.includes('Too many requests')) {
-        friendlyError = 'Too many attempts. Try again later.';
-      }
-      
+      const friendlyError = parseLoginError(err);
       setError(friendlyError);
-      setEmail('');
+      // Clear password on error for security
       setPassword('');
     } finally {
       setLoading(false);
@@ -69,10 +149,10 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
-     <div
-  className="fixed inset-0 bg-black/30 backdrop-blur-md transition-opacity"
-  onClick={handleClose}>
-</div>
+      <div
+        className="fixed inset-0 bg-black/30 backdrop-blur-md transition-opacity"
+        onClick={handleClose}
+      />
       
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
@@ -81,6 +161,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
           <button
             onClick={handleClose}
             className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            disabled={loading}
           >
             <X className="w-6 h-6" />
           </button>
@@ -117,6 +198,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
                   placeholder="Enter your email"
                   required
                   disabled={loading}
+                  autoComplete="email"
                 />
               </div>
 
@@ -132,12 +214,13 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
                   placeholder="Enter your password"
                   required
                   disabled={loading}
+                  autoComplete="current-password"
                 />
               </div>
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !email.trim() || !password}
                 className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2 px-4 rounded-lg hover:from-blue-700 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
                 {loading ? (
@@ -158,6 +241,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }) {
                 <button
                   onClick={onSwitchToSignup}
                   className="text-blue-600 hover:text-blue-700 font-medium hover:underline transition-colors"
+                  disabled={loading}
                 >
                   Create one here
                 </button>
