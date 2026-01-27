@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom'; // ✅ FIXED
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'; // ✅ Add useMemo
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 const MapView = () => {
-  const navigate = useNavigate(); // ✅ FIXED: Actual navigation
+  const navigate = useNavigate();
   const mapContainer = useRef(null);
   const map = useRef(null);
   const markersRef = useRef([]);
@@ -30,12 +30,14 @@ const MapView = () => {
   const [previewJournal, setPreviewJournal] = useState(null);
   const [previewTimer, setPreviewTimer] = useState(null);
 
-  // ✅ Filter journals based on search
-  const filteredJournals = journals.filter(journal => 
-    journal.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    journal.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    journal.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // ✅ FIXED: Use useMemo to prevent recalculation on every render
+  const filteredJournals = useMemo(() => {
+    return journals.filter(journal => 
+      journal.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      journal.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      journal.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [journals, searchTerm]); // Only recalculate when journals or searchTerm changes
 
   useEffect(() => {
     const fetchUserAndJournals = async () => {
@@ -72,21 +74,32 @@ const MapView = () => {
     };
 
     fetchUserAndJournals();
-  }, [navigate]); // ✅ FIXED: Added dependency
+  }, [navigate]);
 
+  // ✅ FIXED: Separate map initialization from data loading
   useEffect(() => {
-    if (!loading && !mapLoaded && filteredJournals.length > 0) { // ✅ Use filtered journals
+    if (!mapLoaded && filteredJournals.length > 0 && mapContainer.current && !map.current) {
       loadLeafletMap();
     }
+    
+    // ✅ FIXED: Proper cleanup - only run when component unmounts
     return () => {
       if (map.current) {
-        markersRef.current.forEach(marker => map.current.removeLayer(marker));
+        // Remove all markers first
+        markersRef.current.forEach(marker => {
+          if (marker && map.current.hasLayer(marker)) {
+            map.current.removeLayer(marker);
+          }
+        });
+        markersRef.current = [];
+        
+        // Remove map instance
         map.current.remove();
         map.current = null;
         setMapLoaded(false);
       }
     };
-  }, [loading, mapLoaded, filteredJournals]); // ✅ Use filtered journals
+  }, [mapLoaded, filteredJournals.length]); // ✅ Only depend on these
 
   const groupJournalsByProximity = useCallback((journals) => {
     const groups = [];
@@ -116,15 +129,21 @@ const MapView = () => {
       groups.push(group);
     });
 
-    console.log('Grouped journals:', groups);
     return groups;
   }, []);
 
   const loadLeafletMap = async () => {
-    console.log('Loading map with journals:', filteredJournals); // ✅ Use filtered
-    if (mapLoaded || !mapContainer.current) return;
+    if (mapLoaded || !mapContainer.current || map.current) return; // ✅ Prevent duplicate initialization
 
     try {
+      // ✅ Clear any existing markers before creating new map
+      markersRef.current.forEach(marker => {
+        if (marker && map.current?.hasLayer(marker)) {
+          map.current.removeLayer(marker);
+        }
+      });
+      markersRef.current = [];
+
       map.current = L.map(mapContainer.current, {
         zoomControl: false,
         scrollWheelZoom: true,
@@ -141,7 +160,7 @@ const MapView = () => {
       }).addTo(map.current);
 
       const journalGroups = groupJournalsByProximity(
-        filteredJournals.filter(j => j.lat && j.lng && !isNaN(j.lat) && !isNaN(j.lng)) // ✅ Use filtered
+        filteredJournals.filter(j => j.lat && j.lng && !isNaN(j.lat) && !isNaN(j.lng))
       );
 
       const validLocations = [];
@@ -219,7 +238,7 @@ const MapView = () => {
       });
 
       if (validLocations.length > 1) {
-        const sortedJournals = [...filteredJournals] // ✅ Use filtered
+        const sortedJournals = [...filteredJournals]
           .filter(j => j.lat && j.lng && j.date)
           .sort((a, b) => new Date(a.date) - new Date(b.date));
 
@@ -248,20 +267,20 @@ const MapView = () => {
       }
 
       setMapLoaded(true);
+      console.log('Map loaded successfully');
     } catch (err) {
       console.error('Map load error:', err);
       setError('Failed to load map. Check network or refresh.');
     }
   };
 
+  // Rest of handlers remain the same...
   const showPreview = (journal) => {
-    console.log('Preview:', journal.title);
     if (previewTimer) clearTimeout(previewTimer);
     setPreviewJournal(journal);
   };
 
   const schedulePreviewHide = () => {
-    console.log('Hiding preview');
     const timer = setTimeout(() => setPreviewJournal(null), 500);
     setPreviewTimer(timer);
   };
@@ -288,6 +307,8 @@ const MapView = () => {
   };
 
   useEffect(() => setCurrentImageIndex(0), [selectedJournal]);
+
+  // ... rest of component (loading, error, and return JSX remain the same)
 
   if (loading) {
     return (
