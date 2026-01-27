@@ -16,8 +16,8 @@ import {
   NotFound,
 } from "./pages/index";
 import { DisplayJournal } from "./section/index";
-import { AddJournal } from "./components/index";
-import AuthCallback from "./components/AuthCallback"; // Add this import
+import { AddJournal,AuthCallback } from "./components/index";
+
 
 export default function App() {
   const [user, setUser] = useState(null);
