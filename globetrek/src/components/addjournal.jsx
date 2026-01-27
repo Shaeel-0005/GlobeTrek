@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
-import LocationPicker from "./LocationPicker"; // Ensure path is correct
+import LocationPicker from "./locationPicker"; // Ensure path is correct
 
 const INITIAL_FORM_STATE = {
   title: "",
