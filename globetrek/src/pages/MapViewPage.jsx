@@ -36,6 +36,7 @@ const MapView = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [previewJournal, setPreviewJournal] = useState(null);
+  const [previewPosition, setPreviewPosition] = useState({ x: 0, y: 0 });
   const [showStats, setShowStats] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
@@ -271,13 +272,13 @@ const MapView = () => {
       });
 
       if (group.length === 1) {
-        marker.on('mouseover', () => showPreview(mainJournal));
+        marker.on('mouseover', () => showPreview(mainJournal, marker));
         marker.on('mouseout', () => schedulePreviewHide());
         
         if (L.Browser.touch) {
           marker.on('click', (e) => {
             L.DomEvent.stopPropagation(e);
-            showPreview(mainJournal);
+            showPreview(mainJournal, marker);
           });
           marker.on('dblclick', clickHandler);
         } else {
@@ -379,17 +380,27 @@ const MapView = () => {
     return groups;
   };
 
-  const showPreview = useCallback((journal) => {
+  const showPreview = useCallback((journal, markerElement) => {
     if (previewTimerRef.current) {
       clearTimeout(previewTimerRef.current);
     }
+    
+    // Get marker position if available
+    if (markerElement && markerElement._icon) {
+      const rect = markerElement._icon.getBoundingClientRect();
+      setPreviewPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top - 10 // Position above the marker
+      });
+    }
+    
     setPreviewJournal(journal);
   }, []);
 
   const schedulePreviewHide = useCallback(() => {
     previewTimerRef.current = setTimeout(() => {
       setPreviewJournal(null);
-    }, 500);
+    }, 200); // Short delay - tooltip stays if mouse enters it
   }, []);
 
   const clearPreview = useCallback(() => {
@@ -646,10 +657,10 @@ const MapView = () => {
 
         {journals.length > 0 ? (
           <>
-            <div ref={mapContainer} className="w-full h-full" role="region" aria-label="Interactive Journey Map" />
+            <div ref={mapContainer} className="w-full h-full relative z-0" role="region" aria-label="Interactive Journey Map" />
             
             {/* Map controls */}
-            <div className="absolute top-4 right-4 z-10 flex flex-col space-y-2">
+            <div className="absolute top-4 right-4 z-[15] flex flex-col space-y-2">
               <button
                 onClick={() => map.current?.zoomIn()}
                 className="w-10 h-10 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg hover:bg-white flex items-center justify-center text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -676,7 +687,7 @@ const MapView = () => {
 
             {/* Legend */}
             {journalsWithCoords.length > 0 && !isFullscreen && (
-              <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 z-10 max-w-xs">
+              <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 z-[15] max-w-xs">
                 <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center">
                   <Layers className="w-4 h-4 mr-2 text-blue-600" />
                   Map Legend
@@ -700,7 +711,7 @@ const MapView = () => {
 
             {/* Statistics panel */}
             {showStats && journeyStats && !isFullscreen && (
-              <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 z-10 max-w-xs animate-in fade-in slide-in-from-left-2 duration-300">
+              <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 z-[15] max-w-xs animate-in fade-in slide-in-from-left-2 duration-300">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-bold text-gray-800 flex items-center">
                     <TrendingUp className="w-4 h-4 mr-2 text-blue-600" />
@@ -750,18 +761,23 @@ const MapView = () => {
             {/* Preview tooltip */}
             {previewJournal && (
               <div 
-                className="absolute z-30 bg-white/98 backdrop-blur-sm rounded-xl shadow-2xl p-4 max-w-sm border border-gray-200 animate-in fade-in zoom-in-95 duration-200" 
+                className="fixed z-[25] pointer-events-auto animate-in fade-in zoom-in-95 duration-200" 
                 style={{ 
-                  left: '50%', 
-                  top: '50%', 
-                  transform: 'translate(-50%, -100%)', 
-                  marginTop: '-80px' 
+                  left: `${previewPosition.x}px`,
+                  top: `${previewPosition.y}px`,
+                  transform: 'translate(-50%, -100%)',
+                  paddingBottom: '20px' // Extra hover zone for smooth transition
                 }}
                 onMouseEnter={clearPreview}
                 onMouseLeave={schedulePreviewHide}
                 role="dialog"
                 aria-label="Journal Preview"
               >
+                <div className="relative bg-white/98 backdrop-blur-sm rounded-xl shadow-2xl p-4 max-w-sm border-2 border-blue-200">
+                  {/* Arrow pointer pointing down to marker */}
+                  <div className="absolute -bottom-[18px] left-1/2 transform -translate-x-1/2 z-10">
+                    <div className="w-4 h-4 bg-white border-r-2 border-b-2 border-blue-200 transform rotate-45"></div>
+                  </div>
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-semibold text-gray-900 text-sm pr-2 line-clamp-1">
                     {previewJournal.title || 'Untitled Journey'}
@@ -797,6 +813,7 @@ const MapView = () => {
                 >
                   View Full Details →
                 </button>
+                </div>
               </div>
             )}
           </>
@@ -824,7 +841,7 @@ const MapView = () => {
         {/* Cluster modal */}
         {selectedCluster && (
           <div 
-            className="absolute inset-0 z-40 bg-black/50 backdrop-blur-sm p-4 md:p-6 flex items-center justify-center animate-in fade-in duration-200" 
+            className="absolute inset-0 z-[30] bg-black/50 backdrop-blur-sm p-4 md:p-6 flex items-center justify-center animate-in fade-in duration-200" 
             onClick={() => setSelectedCluster(null)}
             role="dialog" 
             aria-label="Nearby Journals"
@@ -921,7 +938,7 @@ const MapView = () => {
         {/* Journal detail modal */}
         {selectedJournal && (
           <div 
-            className="absolute inset-0 z-40 bg-black/50 backdrop-blur-sm p-4 md:p-6 flex items-center justify-center animate-in fade-in duration-200" 
+            className="absolute inset-0 z-[30] bg-black/50 backdrop-blur-sm p-4 md:p-6 flex items-center justify-center animate-in fade-in duration-200" 
             onClick={() => setSelectedJournal(null)}
             role="dialog" 
             aria-label="Journal Details"
@@ -1039,7 +1056,7 @@ const MapView = () => {
         {/* Delete confirmation modal */}
         {deleteConfirm && (
           <div 
-            className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+            className="absolute inset-0 z-[40] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
             onClick={() => setDeleteConfirm(null)}
           >
             <div 
