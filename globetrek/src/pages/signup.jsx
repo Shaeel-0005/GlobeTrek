@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
 import { signup_image } from "../assets/index";
@@ -12,83 +12,6 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const navigate = useNavigate();
-
-
-  // Improved email existence check with better error handling
-  // const checkEmailExists = async (email) => {
-  //   try {
-  //     // Use a realistic redirect URL that works in both dev and production
-  //     const isDevelopment = window.location.hostname === 'localhost' || 
-  //                          window.location.hostname === '127.0.0.1';
-      
-  //     const redirectUrl = isDevelopment 
-  //       ? 'https://supabase.com/dashboard' // Safe dummy URL for dev testing
-  //       : `${window.location.origin}/auth/reset-password`;
-
-  //     const { data, error } = await supabase.auth.resetPasswordForEmail(
-  //       email.trim().toLowerCase(),
-  //       {
-  //         redirectTo: redirectUrl,
-  //       }
-  //     );
-
-  //     // If no error, email likely exists
-  //     if (!error) {
-  //       console.log("Password reset email would be sent - email exists");
-  //       return true;
-  //     }
-
-  //     // Check for specific error codes/messages that indicate user doesn't exist
-  //     const errorMessage = error.message.toLowerCase();
-  //     const errorCode = error.code;
-
-  //     // Common Supabase error patterns for non-existent users
-  //     const userNotFoundPatterns = [
-  //       'user not found',
-  //       'unable to validate email address',
-  //       'email not found',
-  //       'invalid email',
-  //       'user does not exist'
-  //     ];
-
-  //     // Check if error indicates user doesn't exist
-  //     const userNotFound = userNotFoundPatterns.some(pattern => 
-  //       errorMessage.includes(pattern)
-  //     );
-
-  //     if (userNotFound || errorCode === 'user_not_found') {
-  //       console.log("Email not found in system");
-  //       return false;
-  //     }
-
-  //     // Handle rate limiting - email might exist but we can't check right now
-  //     if (errorMessage.includes('rate limit') || errorCode === 'rate_limit_exceeded') {
-  //       console.warn("Rate limited during email check");
-  //       return null;
-  //     }
-
-  //     // Handle network/service errors
-  //     if (errorMessage.includes('network') || errorMessage.includes('fetch') || 
-  //         errorCode === 'network_error' || errorCode === 'service_unavailable') {
-  //       console.warn("Network error during email check");
-  //       return null;
-  //     }
-
-  //     // For any other errors, log them but don't block signup
-  //     console.warn("Unknown error during email check:", error);
-  //     return null;
-
-  //   } catch (err) {
-  //     console.error("Exception during email check:", err);
-      
-  //     // Check if it's a network error
-  //     if (err.name === 'NetworkError' || err.message.includes('fetch')) {
-  //       return null;
-  //     }
-      
-  //     return null;
-  //   }
-  // };
 
   // Real-time field validation
   const handleNameChange = (e) => {
@@ -112,24 +35,21 @@ export default function Signup() {
     }
   };
 
-  // Enhanced email validation with existence check integration
   const handleEmailChange = (e) => {
-  const value = e.target.value;
-  setEmail(value);
+    const value = e.target.value;
+    setEmail(value);
 
-  // Clear previous errors
-  if (fieldErrors.email) {
-    setFieldErrors((prev) => ({ ...prev, email: null }));
-  }
+    if (fieldErrors.email) {
+      setFieldErrors((prev) => ({ ...prev, email: null }));
+    }
 
-  // Only validate format
-  if (value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
-    setFieldErrors((prev) => ({
-      ...prev,
-      email: "Please enter a valid email address",
-    }));
-  }
-};
+    if (value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        email: "Please enter a valid email address",
+      }));
+    }
+  };
 
   const handlePasswordChange = (e) => {
     const value = e.target.value;
@@ -196,10 +116,10 @@ export default function Signup() {
 
     if (
       message.includes("User already registered") ||
-      message.includes("email address is already registered") ||
+      message.includes("already registered") ||
       code === "user_already_exists"
     ) {
-      return "This email is already registered. Please try signing in instead or check your email for a confirmation link if you just signed up.";
+      return "This email is already registered. Please sign in instead.";
     }
 
     if (message.includes("invalid email") || code === "invalid_email") {
@@ -212,13 +132,14 @@ export default function Signup() {
 
     if (
       message.includes("Email rate limit exceeded") ||
-      code === "email_rate_limit_exceeded"
+      code === "email_rate_limit_exceeded" ||
+      message.includes("rate limit")
     ) {
-      return "Too many emails sent. Please wait a few minutes before trying again.";
+      return "Too many signup attempts. Please wait a few minutes before trying again.";
     }
 
     if (message.includes("duplicate key value") || code === "23505") {
-      return "This email is already registered. Please try signing in instead.";
+      return "This email is already registered. Please sign in instead.";
     }
 
     if (
@@ -232,39 +153,86 @@ export default function Signup() {
     return "Something went wrong during signup. Please try again.";
   };
 
+  // Helper function to ensure user profile exists
+  const ensureUserProfile = async (userId, userName, userEmail) => {
+    try {
+      console.log("Checking if user profile exists...");
+      
+      // First, check if profile already exists
+      const { data: existingProfile, error: checkError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id", userId)
+        .maybeSingle(); // Use maybeSingle to avoid error if not found
+
+      if (checkError && checkError.code !== "PGRST116") {
+        console.error("Error checking profile:", checkError);
+        throw checkError;
+      }
+
+      if (existingProfile) {
+        console.log("User profile already exists");
+        return { success: true, profile: existingProfile };
+      }
+
+      // Profile doesn't exist, create it
+      console.log("Creating user profile...");
+      const { data: newProfile, error: insertError } = await supabase
+        .from("users")
+        .insert({
+          id: userId,
+          name: userName,
+          email: userEmail,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("Failed to create user profile:", insertError);
+        throw insertError;
+      }
+
+      console.log("User profile created successfully:", newProfile);
+      return { success: true, profile: newProfile };
+      
+    } catch (error) {
+      console.error("Error in ensureUserProfile:", error);
+      return { success: false, error };
+    }
+  };
+
   const handleSignup = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  setError("");
-  setSuccess("");
-  setFieldErrors({});
+    setError("");
+    setSuccess("");
+    setFieldErrors({});
 
-  // Client-side validation
-  const validationErrors = validateForm();
-  if (validationErrors.length > 0) {
-    setError(validationErrors[0]);
-    return;
-  }
+    // Client-side validation
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      setError(validationErrors[0]);
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    // Remove these lines:
-    // console.log("Performing final email check before signup...");
-    // const emailExists = await checkEmailExists(email);
-    // if (emailExists === true) { ... }
-    // if (emailExists === null) { ... }
+    try {
+      const trimmedEmail = email.trim().toLowerCase();
+      const trimmedName = name.trim();
 
-    console.log("Starting signup process for:", email.trim().toLowerCase());
+      console.log("Starting signup process for:", trimmedEmail);
 
-      // Attempt signup - trigger should handle users table insertion automatically
+      // Step 1: Sign up with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
+        email: trimmedEmail,
         password,
         options: {
           data: {
-            name: name.trim(),
+            name: trimmedName,
           },
+          // Set email redirect URL for confirmation
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
@@ -279,68 +247,48 @@ export default function Signup() {
 
       console.log("Auth user created:", authData.user.id);
       console.log("Session exists:", !!authData.session);
-      console.log("User email confirmed:", authData.user.email_confirmed_at);
-      console.log(
-        "User confirmation sent at:",
-        authData.user.confirmation_sent_at
+
+      // Step 2: Ensure user profile exists in database
+      // Wait a moment for trigger to complete (if it exists)
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const profileResult = await ensureUserProfile(
+        authData.user.id,
+        trimmedName,
+        trimmedEmail
       );
 
-      // Since we have a database trigger, the users table should be populated automatically
-      // Let's verify the user was created in our users table
-      const { data: userProfile, error: profileError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", authData.user.id)
-        .single();
-
-      if (profileError && profileError.code !== "PGRST116") {
-        // PGRST116 = no rows returned
-        console.error("Error checking user profile:", profileError);
+      if (!profileResult.success) {
+        console.error("Profile creation failed, but auth succeeded");
+        // Don't fail the signup, just log it
+        console.warn("User can still login, profile will be created on first login");
       }
 
-      if (!userProfile) {
-        console.warn(
-          "User profile not found, trigger may not be working properly"
-        );
-        // Fallback: manually insert the user
-        const { error: insertError } = await supabase.from("users").insert({
-          id: authData.user.id,
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-        });
-
-        if (insertError) {
-          console.error("Manual user insert failed:", insertError);
-          throw new Error(
-            "Account created but profile setup failed. Please contact support."
-          );
-        }
-
-        console.log("User profile created manually as fallback");
-      } else {
-        console.log("User profile created by trigger:", userProfile);
-      }
-
-      // Handle success
+      // Step 3: Handle success based on whether email confirmation is required
       if (authData.session) {
         // User is automatically signed in (email confirmation disabled)
         setSuccess("✅ Account created successfully! Redirecting...");
         setTimeout(() => {
-          navigate("/dashboard", { state: { userName: name.trim() } });
+          navigate("/dashboard", { state: { userName: trimmedName } });
         }, 1500);
       } else {
-        // Email confirmation is enabled and email was sent
+        // Email confirmation is required
         setSuccess(
-          "✅ Account created successfully! Please check your email inbox and click the confirmation link to activate your account."
+          "✅ Account created! Please check your email and click the confirmation link to activate your account."
         );
 
         // Clear the form
         setName("");
         setEmail("");
         setPassword("");
+
+        // Optionally redirect to a "check your email" page after a delay
+        setTimeout(() => {
+          navigate("/", { state: { message: "Please check your email to confirm your account" } });
+        }, 5000);
       }
     } catch (err) {
-      console.error("Full signup error:", err);
+      console.error("Signup error:", err);
       const friendlyError = parseSupabaseError(err);
       setError(friendlyError);
     } finally {
