@@ -184,6 +184,7 @@ export default function EditJournal() {
     setError("");
 
     try {
+      // ✅ FIXED: Soft delete with timestamp
       const { error } = await supabase
         .from("journals")
         .update({ deleted_at: new Date().toISOString() })
@@ -191,7 +192,15 @@ export default function EditJournal() {
 
       if (error) throw error;
 
-      navigate("/all-journals");
+      // ✅ FIXED: Force reload by navigating with replace and timestamp
+      // This ensures the map re-fetches fresh data from database
+      navigate("/map", { 
+        replace: true, // Replace current history entry
+        state: { 
+          refresh: Date.now(), // Timestamp forces refresh
+          message: "Journal deleted successfully" 
+        } 
+      });
     } catch (err) {
       console.error("Delete error:", err);
       setError("Failed to delete journal. Please try again.");

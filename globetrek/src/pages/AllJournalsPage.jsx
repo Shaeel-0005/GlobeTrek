@@ -12,6 +12,9 @@ import {
   Plus,
   Eye,
   Edit,
+  Trash2,
+  AlertCircle,
+  X,
 } from "lucide-react";
 
 export default function AllJournals() {
@@ -19,6 +22,8 @@ export default function AllJournals() {
   const [journals, setJournals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleting, setDeleting] = useState(false);
  
   useEffect(() => {
     const fetchUserAndJournals = async () => {
@@ -43,11 +48,12 @@ export default function AllJournals() {
 
         setUserName(userData?.name || "Traveler");
 
-        // Get all journals (ordered by date desc)
+        // Get all journals (ordered by date desc, exclude deleted)
         const { data, error } = await supabase
           .from("journals")
           .select("*")
           .eq("user_id", user.id)
+          .is("deleted_at", null) // ✅ Only get non-deleted journals
           .order("date", { ascending: false });
 
         if (error) {
@@ -72,6 +78,35 @@ export default function AllJournals() {
       navigate("/");
     } catch (error) {
       console.error("Error signing out:", error);
+    }
+  };
+
+  const handleDeleteClick = (journalId, e) => {
+    e.stopPropagation();
+    setDeleteConfirm(journalId);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm) return;
+    
+    setDeleting(true);
+
+    try {
+      const { error } = await supabase
+        .from("journals")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", deleteConfirm);
+
+      if (error) throw error;
+
+      // Remove from local state
+      setJournals(journals.filter(j => j.id !== deleteConfirm));
+      setDeleteConfirm(null);
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Failed to delete journal. Please try again.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -165,7 +200,7 @@ export default function AllJournals() {
             {journals.map((journal, index) => (
               <div
                 key={journal.id}
-                className="bg-white rounded-xl shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-200 hover:-translate-y-1 overflow-hidden"
+                className="bg-white rounded-xl shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-200 hover:-translate-y-1 overflow-hidden group"
               >
                 {/* Image */}
                 {journal.media_urls && journal.media_urls.length > 0 ? (
@@ -180,32 +215,50 @@ export default function AllJournals() {
                         +{journal.media_urls.length - 1} more
                       </div>
                     )}
-                    {/* Edit button positioned on image */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/edit-journal/${journal.id}`);
-                      }}
-                      className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-700 hover:text-blue-600 p-2 rounded-full shadow-lg transition-colors"
-                      title="Edit Journal"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
+                    {/* Action buttons positioned on image */}
+                    <div className="absolute top-2 right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/edit-journal/${journal.id}`);
+                        }}
+                        className="bg-white/95 hover:bg-white text-blue-600 hover:text-blue-700 p-2 rounded-full shadow-lg transition-all hover:scale-110"
+                        title="Edit Journal"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteClick(journal.id, e)}
+                        className="bg-white/95 hover:bg-white text-red-600 hover:text-red-700 p-2 rounded-full shadow-lg transition-all hover:scale-110"
+                        title="Delete Journal"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center relative">
                     <MapPin className="w-12 h-12 text-gray-400" />
-                    {/* Edit button for cards without images */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/edit-journal/${journal.id}`);
-                      }}
-                      className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-700 hover:text-blue-600 p-2 rounded-full shadow-lg transition-colors"
-                      title="Edit Journal"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
+                    {/* Action buttons for cards without images */}
+                    <div className="absolute top-2 right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/edit-journal/${journal.id}`);
+                        }}
+                        className="bg-white/95 hover:bg-white text-blue-600 hover:text-blue-700 p-2 rounded-full shadow-lg transition-all hover:scale-110"
+                        title="Edit Journal"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteClick(journal.id, e)}
+                        className="bg-white/95 hover:bg-white text-red-600 hover:text-red-700 p-2 rounded-full shadow-lg transition-all hover:scale-110"
+                        title="Delete Journal"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -276,6 +329,45 @@ export default function AllJournals() {
           </div>
         )}
       </main>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => !deleting && setDeleteConfirm(null)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mx-auto mb-4">
+              <AlertCircle className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
+              Delete Journal?
+            </h3>
+            <p className="text-sm text-gray-600 text-center mb-6">
+              This action cannot be undone. The journal will be permanently deleted.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div> 
   );
 }
