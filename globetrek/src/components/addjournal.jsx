@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../supabase";
+import { supabase } from "../supabase"; // ✅ REMOVED getStorageClient import
 import LocationPicker from "./locationPicker"; 
 
 const INITIAL_FORM_STATE = {
@@ -56,56 +56,132 @@ export default function AddJournalForm() {
     handleFieldChange('media', files);
   }, [handleFieldChange]);
 
-  // CRITICAL FIX: Proper Supabase URL retrieval with await
+  // ✅ FIXED: Use main supabase client (no getStorageClient needed)
   const uploadMediaFiles = async (files, userId) => {
-  if (!files.length) return [];
-  
-  // 🔒 CRITICAL: Validate userId format BEFORE upload
-  if (!userId || typeof userId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
-    throw new Error("Invalid user session. Please log in again.");
-  }
-
-  const uploadPromises = files.map(async (file, index) => {
-    // 🛡️ Sanitize extension (prevent path traversal)
-    const cleanExt = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'bin';
-    const fileName = `${Date.now()}_${index}.${cleanExt}`;
-    const filePath = `${userId}/${fileName}`; // NO TRAILING SLASH
+    if (!files.length) return [];
     
-    try {
-      // ✅ UPLOAD (await required)
-      const { error: uploadError } = await supabase.storage
-        .from("media")
-        .upload(filePath, file, { 
-          upsert: false, // Prevent accidental overwrites
-          onUploadProgress: (progress) => {
-            const percentage = Math.round((progress.loaded / progress.total) * 100);
-            setUploadProgress(prev => Math.max(prev, percentage));
-          }
-        });
-
-      if (uploadError) throw uploadError;
-
-      // ✅ GET PUBLIC URL (SYNCHRONOUS - NO AWAIT!)
-      const { data } = supabase.storage.from("media").getPublicUrl(filePath);
-      if (!data?.publicUrl) throw new Error("Failed to generate public URL");
-      
-      return data.publicUrl;
-    } catch (error) {
-      console.error(`Upload failed for ${file.name}:`, error);
-      
-      // 💡 User-friendly RLS error hint
-      if (error.message?.includes('row-level security') || error.statusCode === 400) {
-        throw new Error(
-          `Storage permission error for "${file.name}". ` +
-          `Admin: Check Storage RLS policies for bucket "media".`
-        );
-      }
-      throw error;
+    // 🔒 STEP 1: VALIDATE FRESH SESSION
+    const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+    if (sessionErr || !session?.user) {
+      throw new Error("Session expired. Please log in again.");
     }
-  });
+    if (session.user.id !== userId) {
+      throw new Error("Security mismatch: User ID changed during upload.");
+    }
 
-  return Promise.all(uploadPromises);
-};
+    // 🚀 STEP 2: USE MAIN SUPABASE CLIENT (no separate storage client needed)
+    const bucket = "media";
+    
+    // 📁 STEP 3: SANITIZE & PREPARE FILES
+    const validFiles = files.filter(file => {
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      const allowedTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+        'video/mp4', 'video/webm'
+      ];
+      
+      if (file.size > maxSize) {
+        console.warn(`Skipped: ${file.name} exceeds 10MB limit`);
+        return false;
+      }
+      if (!allowedTypes.includes(file.type)) {
+        console.warn(`Skipped: ${file.name} has unsupported type: ${file.type}`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) {
+      throw new Error("No valid files to upload. Check file types and sizes.");
+    }
+
+    // 📤 STEP 4: UPLOAD WITH PROGRESS & ERROR ISOLATION
+    const uploadResults = await Promise.allSettled(
+      validFiles.map(async (file, index) => {
+        // Generate secure path: userId/timestamp_index.ext
+        const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
+        const safeName = `${Date.now()}_${index}.${ext}`;
+        const filePath = `${userId}/${safeName}`;
+        
+        try {
+          // ✅ UPLOAD using main supabase client
+          const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(filePath, file, {
+              upsert: false,
+              onUploadProgress: (progress) => {
+                if (progress.total) {
+                  const fileProgress = Math.round((progress.loaded / progress.total) * 100);
+                  const globalProgress = Math.min(
+                    99,
+                    Math.round(((index * 100 + fileProgress) / validFiles.length))
+                  );
+                  setUploadProgress(globalProgress);
+                }
+              }
+            });
+
+          if (uploadError) {
+            console.error(`Upload failed for ${file.name}:`, uploadError);
+            throw new Error(`Upload failed for "${file.name}": ${uploadError.message}`);
+          }
+
+          // ✅ GET PUBLIC URL (AWAITED)
+          const { data: urlData, error: urlError } = await supabase.storage
+            .from(bucket)
+            .getPublicUrl(filePath);
+          
+          if (urlError || !urlData?.publicUrl) {
+            throw new Error(`Failed to generate access URL for "${file.name}"`);
+          }
+          
+          return urlData.publicUrl;
+          
+        } catch (err) {
+          console.error(`Critical failure for ${file.name}:`, err);
+          if (err.message?.includes('403') || err.message?.includes('unauthorized')) {
+            throw new Error(
+              `Storage permission denied for "${file.name}". ` +
+              `Verify RLS policies on "media" bucket.`
+            );
+          }
+          if (err.message?.includes('404') || err.message?.includes('bucket')) {
+            throw new Error(
+              `Storage bucket "media" not found. ` +
+              `Create bucket in Supabase Storage dashboard.`
+            );
+          }
+          throw err;
+        }
+      })
+    );
+
+    // 🧪 STEP 5: PROCESS RESULTS & HANDLE PARTIAL FAILURES
+    const successfulUrls = [];
+    const errors = [];
+    
+    uploadResults.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value) {
+        successfulUrls.push(result.value);
+      } else {
+        const fileName = validFiles[index]?.name || `file_${index}`;
+        errors.push(`"${fileName}": ${result.reason?.message || 'Unknown error'}`);
+      }
+    });
+
+    // 🚨 REPORT PARTIAL FAILURES
+    if (errors.length > 0 && successfulUrls.length === 0) {
+      throw new Error(`All uploads failed:\n• ${errors.join('\n• ')}`);
+    } else if (errors.length > 0) {
+      console.warn("Partial upload success:", errors);
+      setError(
+        `⚠️ ${errors.length} file(s) failed to upload. ` +
+        `Journal saved with ${successfulUrls.length} successful media item(s).`
+      );
+    }
+
+    return successfulUrls;
+  };
 
   // Enhanced form submission with better error handling
   const handleSubmit = async (e) => {
@@ -115,30 +191,32 @@ export default function AddJournalForm() {
     setUploadProgress(0);
 
     try {
+      // ✅ VALIDATE SESSION
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.user) {
+        throw new Error("Session expired. Please log in again.");
+      }
+      const userId = session.user.id;
+
       // Validate form data
       if (!formData.title.trim()) throw new Error("Title is required");
       if (!formData.location.trim()) throw new Error("Location is required");
       if (!formData.date) throw new Error("Date is required");
       if (!formData.description.trim()) throw new Error("Description is required");
 
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError) throw authError;
-      if (!user) throw new Error("You must be logged in to add a journal.");
-
-      // Upload media files with progress tracking
+      // ✅ UPLOAD MEDIA (uses userId from session)
       let mediaURLs = [];
       if (formData.media.length > 0) {
-        mediaURLs = await uploadMediaFiles(formData.media, user.id);
+        mediaURLs = await uploadMediaFiles(formData.media, userId);
       }
 
-      // Insert journal entry
+      // ✅ INSERT JOURNAL (uses validated userId)
       const journalData = {
-        user_id: user.id,
+        user_id: userId,
         title: formData.title.trim(),
         location: formData.location,
         lat: formData.coords?.lat || null,
-        lng: formData.coords?.lng || null, // FIXED: was 'lon' in coords but 'lng' in DB
+        lng: formData.coords?.lng || null,
         date: formData.date,
         description: formData.description.trim(),
         mishaps: formData.mishaps.trim() || null,
@@ -152,6 +230,7 @@ export default function AddJournalForm() {
       // Reset form and show success
       setFormData(INITIAL_FORM_STATE);
       setShowSuccess(true);
+      setError("");
 
       // Navigate after delay
       setTimeout(() => {
@@ -161,7 +240,7 @@ export default function AddJournalForm() {
 
     } catch (err) {
       console.error('Form submission error:', err);
-      setError(err?.message || "Something went wrong. Please try again.");
+      setError(err.message || "Failed to save journal. Please try again.");
     } finally {
       setLoading(false);
       setUploadProgress(0);
@@ -249,7 +328,7 @@ export default function AddJournalForm() {
             onChange={(e) => handleFieldChange('date', e.target.value)}
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             required
-            max={new Date().toISOString().split('T')[0]} // Prevent future dates
+            max={new Date().toISOString().split('T')[0]}
           />
         </div>
 

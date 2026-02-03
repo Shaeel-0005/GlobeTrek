@@ -173,40 +173,34 @@ export default function EditJournal() {
     }
   };
 
-  const handleDelete = async () => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this journal? This action cannot be undone."
-    );
+ const handleDelete = async () => {
+  const confirmed = window.confirm(
+    "Are you sure you want to delete this journal? This action cannot be undone."
+  );
+  
+  if (!confirmed) return;
+
+  setDeleting(true);
+  setError("");
+
+  try {
+    // HARD DELETE - actually removes from database
+    const { error } = await supabase
+      .from("journals")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    // Navigate away
+    navigate("/all-journals", { replace: true });
     
-    if (!confirmed) return;
-
-    setDeleting(true);
-    setError("");
-
-    try {
-      // ✅ FIXED: Soft delete with timestamp
-      const { error } = await supabase
-        .from("journals")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", id);
-
-      if (error) throw error;
-
-      // ✅ FIXED: Force reload by navigating with replace and timestamp
-      // This ensures the map re-fetches fresh data from database
-      navigate("/map", { 
-        replace: true, // Replace current history entry
-        state: { 
-          refresh: Date.now(), // Timestamp forces refresh
-          message: "Journal deleted successfully" 
-        } 
-      });
-    } catch (err) {
-      console.error("Delete error:", err);
-      setError("Failed to delete journal. Please try again.");
-      setDeleting(false);
-    }
-  };
+  } catch (err) {
+    console.error("Delete error:", err);
+    setError("Failed to delete journal: " + err.message);
+    setDeleting(false);
+  }
+};
 
   if (loading) {
     return (

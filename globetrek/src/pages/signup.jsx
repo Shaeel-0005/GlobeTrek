@@ -153,53 +153,7 @@ export default function Signup() {
     return "Something went wrong during signup. Please try again.";
   };
 
-  // Helper function to ensure user profile exists
-  const ensureUserProfile = async (userId, userName, userEmail) => {
-    try {
-      console.log("Checking if user profile exists...");
-      
-      // First, check if profile already exists
-      const { data: existingProfile, error: checkError } = await supabase
-        .from("users")
-        .select("id")
-        .eq("id", userId)
-        .maybeSingle(); // Use maybeSingle to avoid error if not found
-
-      if (checkError && checkError.code !== "PGRST116") {
-        console.error("Error checking profile:", checkError);
-        throw checkError;
-      }
-
-      if (existingProfile) {
-        console.log("User profile already exists");
-        return { success: true, profile: existingProfile };
-      }
-
-      // Profile doesn't exist, create it
-      console.log("Creating user profile...");
-      const { data: newProfile, error: insertError } = await supabase
-        .from("users")
-        .insert({
-          id: userId,
-          name: userName,
-          email: userEmail,
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error("Failed to create user profile:", insertError);
-        throw insertError;
-      }
-
-      console.log("User profile created successfully:", newProfile);
-      return { success: true, profile: newProfile };
-      
-    } catch (error) {
-      console.error("Error in ensureUserProfile:", error);
-      return { success: false, error };
-    }
-  };
+  
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -217,84 +171,40 @@ export default function Signup() {
 
     setLoading(true);
 
-    try {
-      const trimmedEmail = email.trim().toLowerCase();
-      const trimmedName = name.trim();
+     try {
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedName = name.trim();
 
-      console.log("Starting signup process for:", trimmedEmail);
+    // SIGNUP ONLY - NO PROFILE CREATION ATTEMPT
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: trimmedEmail,
+      password,
+      options: {
+        data: { name: trimmedName }, // Stores in auth.users metadata
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
 
-      // Step 1: Sign up with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: trimmedEmail,
-        password,
-        options: {
-          data: {
-            name: trimmedName,
-          },
-          // Set email redirect URL for confirmation
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
+    if (authError) throw authError;
+    if (!authData?.user) throw new Error("No user data returned");
 
-      if (authError) {
-        console.error("Auth signup error:", authError);
-        throw authError;
-      }
-
-      if (!authData?.user) {
-        throw new Error("No user data returned from signup");
-      }
-
-      console.log("Auth user created:", authData.user.id);
-      console.log("Session exists:", !!authData.session);
-
-      // Step 2: Ensure user profile exists in database
-      // Wait a moment for trigger to complete (if it exists)
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const profileResult = await ensureUserProfile(
-        authData.user.id,
-        trimmedName,
-        trimmedEmail
-      );
-
-      if (!profileResult.success) {
-        console.error("Profile creation failed, but auth succeeded");
-        // Don't fail the signup, just log it
-        console.warn("User can still login, profile will be created on first login");
-      }
-
-      // Step 3: Handle success based on whether email confirmation is required
-      if (authData.session) {
-        // User is automatically signed in (email confirmation disabled)
-        setSuccess("✅ Account created successfully! Redirecting...");
-        setTimeout(() => {
-          navigate("/dashboard", { state: { userName: trimmedName } });
-        }, 1500);
-      } else {
-        // Email confirmation is required
-        setSuccess(
-          "✅ Account created! Please check your email and click the confirmation link to activate your account."
-        );
-
-        // Clear the form
-        setName("");
-        setEmail("");
-        setPassword("");
-
-        // Optionally redirect to a "check your email" page after a delay
-        setTimeout(() => {
-          navigate("/", { state: { message: "Please check your email to confirm your account" } });
-        }, 5000);
-      }
-    } catch (err) {
-      console.error("Signup error:", err);
-      const friendlyError = parseSupabaseError(err);
-      setError(friendlyError);
-    } finally {
-      setLoading(false);
+    // HANDLE REDIRECTION BASED ON EMAIL CONFIRMATION STATUS
+    if (authData.session) {
+      // Email confirmation DISABLED - user is logged in
+      setSuccess("✅ Account created! Redirecting to dashboard...");
+      setTimeout(() => navigate("/dashboard"), 1500);
+    } else {
+      // Email confirmation REQUIRED (standard flow)
+      setSuccess("✅ Account created! Check your email to confirm your account.");
+      setName(""); setEmail(""); setPassword("");
+      setTimeout(() => navigate("/"), 5000);
     }
-  };
+  } catch (err) {
+    setError(parseSupabaseError(err));
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
