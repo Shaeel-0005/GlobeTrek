@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
 import {
@@ -14,102 +14,101 @@ import {
   Edit,
   Trash2,
   AlertCircle,
-  X,
 } from "lucide-react";
 
 export default function AllJournals() {
   const navigate = useNavigate();
+
   const [journals, setJournals] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState("");
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [userName, setUserName] = useState("Traveler");
+  const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
- 
-  useEffect(() => {
-    const fetchUserAndJournals = async () => {
-      try {
-        // Get current user
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
 
-        if (authError || !user) {
-          navigate("/");
-          return;
-        }
+  /* =========================
+     FETCH USER + JOURNALS
+     ========================= */
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
 
-        // Get user name
-        const { data: userData } = await supabase
-          .from("users")
-          .select("name")
-          .eq("id", user.id)
-          .single();
+      const { data: { user }, error: authError } =
+        await supabase.auth.getUser();
 
-        setUserName(userData?.name || "Traveler");
-
-        // Get all journals (ordered by date desc, exclude deleted)
-        const { data, error } = await supabase
-          .from("journals")
-          .select("*")
-          .eq("user_id", user.id)
-          .is("deleted_at", null) // ✅ Only get non-deleted journals
-          .order("date", { ascending: false });
-
-        if (error) {
-          console.error("Error fetching journals:", error);
-        } else if (data) {
-          setJournals(data);
-        }
-      } catch (error) {
-        console.error("Error:", error);
-      } finally {
-        setLoading(false);
+      if (authError || !user) {
+        navigate("/");
+        return;
       }
-    };
 
-    fetchUserAndJournals();
+      // Fetch user name
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      setUserName(userRow?.name || "Traveler");
+
+      // Fetch journals
+      const { data, error } = await supabase
+        .from("journals")
+        .select("*")
+        .eq("user_id", user.id)
+        .is("deleted_at", null)
+        .order("date", { ascending: false });
+
+      if (error) throw error;
+      setJournals(data || []);
+
+    } catch (err) {
+      console.error("Load error:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [navigate]);
 
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  /* =========================
+     AUTH
+     ========================= */
   const handleSignOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      navigate("/");
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
+    await supabase.auth.signOut();
+    navigate("/");
   };
 
-  const handleDeleteClick = (journalId, e) => {
-    e.stopPropagation();
-    setDeleteConfirm(journalId);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteConfirm) return;
-    
-    setDeleting(true);
+  /* =========================
+     DELETE JOURNAL
+     ========================= */
+  const confirmDelete = async () => {
+    if (!deleteId) return;
 
     try {
+      setDeleting(true);
+
       const { error } = await supabase
         .from("journals")
         .update({ deleted_at: new Date().toISOString() })
-        .eq("id", deleteConfirm);
+        .eq("id", deleteId);
 
       if (error) throw error;
 
-      // Remove from local state
-      setJournals(journals.filter(j => j.id !== deleteConfirm));
-      setDeleteConfirm(null);
+      setJournals((prev) => prev.filter(j => j.id !== deleteId));
+      setDeleteId(null);
+
     } catch (err) {
-      console.error("Delete error:", err);
-      alert("Failed to delete journal. Please try again.");
+      console.error("Delete failed:", err);
+      alert("Failed to delete journal.");
     } finally {
       setDeleting(false);
     }
   };
 
+  /* =========================
+     LOADING STATE
+     ========================= */
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50">
@@ -121,246 +120,176 @@ export default function AllJournals() {
     );
   }
 
+  /* =========================
+     UI
+     ========================= */
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate("/dashboard")}
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white rounded-md hover:bg-blue-50 hover:text-blue-600 transition-colors border border-gray-300"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Dashboard
-              </button>
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-500 rounded-full flex items-center justify-center">
-                  <Plane className="w-4 h-4 text-white" />
-                </div>
-                <h1 className="text-xl font-bold text-gray-900 flex items-center space-x-2">
-                  <Camera className="w-5 h-5 text-blue-600" />
-                  <span>My Journeys</span>
-                </h1>
+
+      {/* HEADER */}
+      <header className="bg-white/80 backdrop-blur border-b sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="flex items-center px-3 py-2 text-sm border rounded-md hover:bg-blue-50"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Dashboard
+            </button>
+
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                <Plane className="w-4 h-4 text-white" />
               </div>
+              <h1 className="text-xl font-bold flex items-center gap-2">
+                <Camera className="w-5 h-5 text-blue-600" />
+                My Journeys
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/add-journal")}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Journey
+            </button>
+
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <User className="w-4 h-4" />
+              {userName}
             </div>
 
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate("/add-journal")}
-                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-md hover:from-blue-700 hover:to-blue-600 transition-colors text-sm font-medium"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Journey
-              </button>
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <User className="w-4 h-4" />
-                <span>{userName}</span>
-              </div>
-              <button
-                onClick={handleSignOut}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
-              </button>
-            </div>
+            <button
+              onClick={handleSignOut}
+              className="flex items-center px-3 py-2 border rounded-md hover:bg-red-50 hover:text-red-600"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Header */}
-        <div className="mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  Travel Journal
-                </h2>
-                <p className="text-gray-600">
-                  Your documented adventures and memories
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-blue-600">
-                  {journals.length}
-                </div>
-                <div className="text-sm text-gray-600">Total Journeys</div>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* CONTENT */}
+      <main className="max-w-7xl mx-auto px-4 py-8">
 
-        {/* Journals Grid */}
-        {journals.length > 0 ? (
+        {journals.length === 0 ? (
+          <div className="text-center py-16">
+            <Camera className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No Journeys Yet</h2>
+            <p className="text-gray-600 mb-6">
+              Start documenting your adventures.
+            </p>
+            <button
+              onClick={() => navigate("/add-journal")}
+              className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              <Plus className="w-5 h-5 inline mr-2" />
+              Add Your First Journey
+            </button>
+          </div>
+        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {journals.map((journal, index) => (
+            {journals.map((j, idx) => (
               <div
-                key={journal.id}
-                className="bg-white rounded-xl shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-200 hover:-translate-y-1 overflow-hidden group"
+                key={j.id}
+                className="bg-white rounded-xl shadow border hover:shadow-lg transition overflow-hidden group"
               >
-                {/* Image */}
-                {journal.media_urls && journal.media_urls.length > 0 ? (
-                  <div className="h-48 relative overflow-hidden">
+
+                {/* IMAGE */}
+                <div className="h-48 relative bg-gray-100">
+                  {j.media_urls?.length ? (
                     <img
-                      src={journal.media_urls[0]}
-                      alt={journal.title}
+                      src={j.media_urls[0]}
+                      alt={j.title}
                       className="w-full h-full object-cover"
                     />
-                    {journal.media_urls.length > 1 && (
-                      <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
-                        +{journal.media_urls.length - 1} more
-                      </div>
-                    )}
-                    {/* Action buttons positioned on image */}
-                    <div className="absolute top-2 right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/edit-journal/${journal.id}`);
-                        }}
-                        className="bg-white/95 hover:bg-white text-blue-600 hover:text-blue-700 p-2 rounded-full shadow-lg transition-all hover:scale-110"
-                        title="Edit Journal"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteClick(journal.id, e)}
-                        className="bg-white/95 hover:bg-white text-red-600 hover:text-red-700 p-2 rounded-full shadow-lg transition-all hover:scale-110"
-                        title="Delete Journal"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                  ) : (
+                    <div className="h-full flex items-center justify-center">
+                      <MapPin className="w-12 h-12 text-gray-400" />
                     </div>
-                  </div>
-                ) : (
-                  <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center relative">
-                    <MapPin className="w-12 h-12 text-gray-400" />
-                    {/* Action buttons for cards without images */}
-                    <div className="absolute top-2 right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/edit-journal/${journal.id}`);
-                        }}
-                        className="bg-white/95 hover:bg-white text-blue-600 hover:text-blue-700 p-2 rounded-full shadow-lg transition-all hover:scale-110"
-                        title="Edit Journal"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteClick(journal.id, e)}
-                        className="bg-white/95 hover:bg-white text-red-600 hover:text-red-700 p-2 rounded-full shadow-lg transition-all hover:scale-110"
-                        title="Delete Journal"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Content */}
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">
-                      {journal.title || "Untitled Journey"}
-                    </h3>
-                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full ml-2">
-                      #{index + 1}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    {journal.location && (
-                      <div className="flex items-center text-sm text-gray-600">
-                        <MapPin className="w-4 h-4 mr-2 text-blue-600" />
-                        <span>{journal.location}</span>
-                      </div>
-                    )}
-
-                    {journal.date && (
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="w-4 h-4 mr-2 text-green-600" />
-                        <span>
-                          {new Date(journal.date).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {journal.description && (
-                    <p className="text-sm text-gray-700 mb-4 line-clamp-3">
-                      {journal.description}
-                    </p>
                   )}
 
+                  <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition">
+                    <button
+                      onClick={() => navigate(`/edit-journal/${j.id}`)}
+                      className="p-2 bg-white rounded-full text-blue-600"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(j.id)}
+                      className="p-2 bg-white rounded-full text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* CONTENT */}
+                <div className="p-6">
+                  <h3 className="font-semibold text-lg mb-2">
+                    {j.title || "Untitled Journey"}
+                  </h3>
+
+                  <div className="space-y-1 text-sm text-gray-600 mb-3">
+                    {j.location && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        {j.location}
+                      </div>
+                    )}
+                    {j.date && (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(j.date).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+
                   <button
-                    onClick={() => {
-                      navigate(`/journal/${journal.id}`);
-                    }}
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2 px-4 rounded-md hover:from-blue-700 hover:to-blue-600 transition-colors text-sm font-medium flex items-center justify-center"
+                    onClick={() => navigate(`/journal/${j.id}`)}
+                    className="w-full mt-2 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex justify-center items-center gap-2"
                   >
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Full Journey
+                    <Eye className="w-4 h-4" />
+                    View Journey
                   </button>
                 </div>
               </div>
             ))}
           </div>
-        ) : (
-          <div className="text-center py-12">
-            <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No Journeys Yet
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Start documenting your travels and adventures!
-            </p>
-            <button
-              onClick={() => navigate("/add-journal")}
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-md hover:from-blue-700 hover:to-blue-600 transition-colors font-medium"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Add Your First Journey
-            </button>
-          </div>
         )}
       </main>
 
-      {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => !deleting && setDeleteConfirm(null)}
-        >
-          <div 
-            className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mx-auto mb-4">
-              <AlertCircle className="w-6 h-6 text-red-600" />
+      {/* DELETE MODAL */}
+      {deleteId && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full">
+            <div className="flex justify-center mb-4">
+              <AlertCircle className="w-8 h-8 text-red-600" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
+            <h3 className="text-lg font-bold text-center mb-2">
               Delete Journal?
             </h3>
             <p className="text-sm text-gray-600 text-center mb-6">
-              This action cannot be undone. The journal will be permanently deleted.
+              This action cannot be undone.
             </p>
-            <div className="flex space-x-3">
+            <div className="flex gap-3">
               <button
-                onClick={() => setDeleteConfirm(null)}
-                disabled={deleting}
-                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
+                onClick={() => setDeleteId(null)}
+                className="flex-1 py-2 bg-gray-100 rounded-md"
               >
                 Cancel
               </button>
               <button
-                onClick={handleConfirmDelete}
+                onClick={confirmDelete}
                 disabled={deleting}
-                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+                className="flex-1 py-2 bg-red-600 text-white rounded-md"
               >
                 {deleting ? "Deleting..." : "Delete"}
               </button>
@@ -368,6 +297,7 @@ export default function AllJournals() {
           </div>
         </div>
       )}
-    </div> 
+
+    </div>
   );
 }
